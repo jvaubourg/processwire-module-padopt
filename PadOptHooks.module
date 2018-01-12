@@ -52,10 +52,10 @@ class PadOptHooks extends WireData implements Module {
 
       $options = &$this->stored_options[$this->session_id][$product_id][$variation_id];
 
-      foreach($event->object->input->post as $field => $value) {
-        if(strpos($field, $this->input_prefix) === 0) {
+      foreach($event->object->input->post as $input => $value) {
+        if(strpos($input, $this->input_prefix) === 0) {
           // text() allows 255 chars max
-          $options[$this->sanitizer->fieldName($field)] = $this->sanitizer->text($value);
+          $options[$this->sanitizer->fieldName($input)] = $this->sanitizer->text($value);
         }
       }
     }
@@ -103,8 +103,6 @@ class PadOptHooks extends WireData implements Module {
       $sth->execute();
 
       $cart_products = $sth->fetchAll(\PDO::FETCH_CLASS);
-      $optColumn = $this->db_optcolumn;
-      $optField = $this->field_name;
 
       foreach($cart_products as $cart_product) {
         $product_id = $cart_product->product_id;
@@ -113,7 +111,7 @@ class PadOptHooks extends WireData implements Module {
         $order_product = $event->object->pad_products->find("pad_product_id=$product_id, pad_variation_id=$variation_id");
 
         if($order_product->count == 1) {
-          $order_product[0]->$optField = $cart_product->$optColumn;
+          $order_product[0]->{$this->field_name} = $cart_product->{$this->db_optcolumn};
           $order_product[0]->save();
 
         } elseif($order_product->count > 1) {
@@ -128,12 +126,52 @@ class PadOptHooks extends WireData implements Module {
 
   // after PadProcess::executeViewOrder
   public function addOptionsToViewOrder($event) {
+    $id = (int) $this->input->get->id;
+    $order = $event->object->pages->get($id);
     $page = $event->return;
 
+    preg_match('/<thead>.*<\\/thead>/Us', $page, $thead);
     preg_match('/<tbody>.*<\\/tbody>/Us', $page, $tbody);
-    preg_match_all('/<tr>.*<\\/tr>/Us', $tbody[0], $rows);
 
-    //echo var_dump($rows);
+    preg_match_all('/<tr>.*<\\/tr>/Us', $tbody[0], $bodyrows);
+    $bodyrows = $bodyrows[0];
+
+    if($order->pad_products->count == count($bodyrows) - 1) {
+      $headcols = explode('</th>', $thead[0]);
+      $headcols[0] .= '</th><th>Included Options';
+
+      $thead = implode('</th>', $headcols);
+
+      for($i = 0; $i < count($bodyrows); $i++) {
+        $bodycols = explode('</td>', $bodyrows[$i]);
+        $bodycols[0] .= '</td><td>';
+
+        if($i < count($bodyrows) - 1) {
+          $serialized_options = $order->pad_products[$i]->{$this->field_name};
+	  $options = unserialize($serialized_options);
+	  $options_list = '<ul>';
+
+	  foreach($options as $name => $value) {
+	    $options_list .= "<li>$name : $value</li>";
+	  }
+
+	  $options_list .= '</ul>';
+          $bodycols[0] .= $options_list;
+        }
+
+        $bodyrows[$i] = implode('</td>', $bodycols);
+      }
+
+      $tbody = '<tbody>' . implode($bodyrows) . '</tbody>';
+
+      $page = preg_replace('/<thead>.*<\\/thead>/Us', $thead, $page, 1);
+      $page = preg_replace('/<tbody>.*<\\/tbody>/Us', $tbody, $page, 1);
+
+      $event->return = $page;
+
+    } else {
+      $this->error("Cannot show products options");
+    }
   }
 
   public function install() {

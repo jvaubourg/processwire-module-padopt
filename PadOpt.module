@@ -1,20 +1,22 @@
 <?php
-class PadOptHooks extends WireData implements Module {
+class PadOpt extends WireData implements Module {
   protected $db_padcart = 'padcart';
   protected $db_optcolumn = 'padopt_options';
-  protected $field_name = 'padOptField';
+  protected $field_name = 'padopt_options';
   protected $input_prefix = 'padopt_';
+  protected $tpl_prefix = 'padopt_';
+  protected $input_padopt_enabled = 'padopt';
   protected $stored_options = array();
   protected $session_id;
 
   public static function getModuleInfo() {
     return array(
-      'title' => 'PadLoper Options',
+      'title' => 'PadLoper Client Options',
       'version' => 1,
       'summary' => 'Add custom client options to products for PadLoper',
       'icon' => 'cart-plus',
-      'href' => 'https://julien.vaubourg.com', 
-      'author' => 'Julien Vaubourg', 
+      'href' => 'https://github.com/jvaubourg/processwire-module-padopt',
+      'author' => 'Julien Vaubourg',
       'singular' => true,
       'autoload' => true,
       'requires' => 'PadLoper',
@@ -35,7 +37,7 @@ class PadOptHooks extends WireData implements Module {
     $product_id = (int) $event->arguments('id');
     $variation_id = (int) $event->arguments('variation_id');
 
-    $is_padopt_page = ($event->object->input->post('padopt') == 1);
+    $is_padopt_page = ($event->object->input->post($this->input_padopt_enabled) == 1);
 
     if($is_padopt_page && !empty($product_id) && !empty($variation_id)) {
       if(!array_key_exists($this->session_id, $this->stored_options)) {
@@ -78,7 +80,7 @@ class PadOptHooks extends WireData implements Module {
           $options = $this->stored_options[$this->session_id][$product_id][$variation_id];
           $serialized_options = serialize($options);
   
-          $sql = "UPDATE $this->db_padcart SET $this->db_optcolumn = :options WHERE sess_id = :sess_id AND id = :id";  
+          $sql = "UPDATE {$this->db_padcart} SET {$this->db_optcolumn} = :options WHERE sess_id = :sess_id AND id = :id";  
           $sth = $this->database->prepare($sql);
           $sth->bindParam(":options", $serialized_options);
           $sth->bindParam(":sess_id", $this->session_id);
@@ -89,7 +91,7 @@ class PadOptHooks extends WireData implements Module {
         }
 
       } else {
-        $this->warning("No options found for the product $product_id/$variation_id in this session");
+        $this->warning("No options found for the product {$product_id}/{$variation_id} in this session");
       }
     }
   }
@@ -97,7 +99,7 @@ class PadOptHooks extends WireData implements Module {
   // after PadOrder::parseCart
   public function convertCartWithOptionsToOrder($event) {
     if($event->object->pad_products->count > 0) {
-      $sql = "SELECT product_id, variation_id, $this->db_optcolumn FROM $this->db_padcart WHERE sess_id = :sess_id";
+      $sql = "SELECT product_id, variation_id, {$this->db_optcolumn} FROM {$this->db_padcart} WHERE sess_id = :sess_id";
       $sth = $this->database->prepare($sql);
       $sth->bindParam(":sess_id", $this->session_id);
       $sth->execute();
@@ -108,17 +110,17 @@ class PadOptHooks extends WireData implements Module {
         $product_id = $cart_product->product_id;
         $variation_id = $cart_product->variation_id;
 
-        $order_product = $event->object->pad_products->find("pad_product_id=$product_id, pad_variation_id=$variation_id");
+        $order_product = $event->object->pad_products->find("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
 
         if($order_product->count == 1) {
           $order_product[0]->{$this->field_name} = $cart_product->{$this->db_optcolumn};
           $order_product[0]->save();
 
         } elseif($order_product->count > 1) {
-          $this->warning("Too much products corresponding to $product_id/$variation_id in the order.");
+          $this->warning("Too much products corresponding to {$product_id}/{$variation_id} in the order.");
 
         } else {
-          $this->warning("No product corresponding to $product_id/$variation_id in the order.");
+          $this->warning("No product corresponding to {$product_id}/{$variation_id} in the order.");
         }
       }  
     }
@@ -154,7 +156,7 @@ class PadOptHooks extends WireData implements Module {
             $options_list = '<ul>';
 
             foreach($options as $name => $value) {
-              $options_list .= "<li>$name : $value</li>";
+              $options_list .= "<li>{$name} : {$value}</li>";
             }
 
             $options_list .= '</ul>';
@@ -177,6 +179,14 @@ class PadOptHooks extends WireData implements Module {
     }
   }
 
+  public function getInputPrefix() {
+    return $this->input_prefix;
+  }
+
+  public function getTplPrefix() {
+    return $this->tpl_prefix;
+  }
+
   // Inspired from https://github.com/ryancramerdesign/FormTemplateProcessor
   public function renderFieldset($template) {
     $form = $this->modules->get('InputfieldForm');
@@ -192,48 +202,48 @@ class PadOptHooks extends WireData implements Module {
     }
 
     $formRender = $form->render();
-    $fieldsetRender = preg_replace('/<\/?form[^>]*>/', '', $formRender);
+    $render = preg_replace('/<\/?form[^>]*>/', '', $formRender);
 
-    return $fieldsetRender;
+    return $render;
   }
 
   public function install() {
-    $sql = "ALTER TABLE $this->db_padcart ADD $this->db_optcolumn TEXT DEFAULT NULL";
+    $sql = "ALTER TABLE {$this->db_padcart} ADD {$this->db_optcolumn} TEXT DEFAULT NULL";
     $this->database->exec($sql);
 
-    $this->message("Created new SQL column $this->db_optcolumn in carts");
+    $this->message("Created new SQL column {$this->db_optcolumn} in carts");
 
-    $padOptField = new Field();
-    $padOptField->type = $this->modules->get('FieldtypeTextarea');
-    $padOptField->name = $this->field_name;
-    $padOptField->label = 'Order Options for PadLoper';
-    $padOptField->description = 'Options associated to the order, chosen by the client.';
-    $padOptField->save();
+    $padopt_field = new Field();
+    $padopt_field->type = $this->modules->get('FieldtypeTextarea');
+    $padopt_field->name = $this->field_name;
+    $padopt_field->label = 'Order Options for PadLoper';
+    $padopt_field->description = 'Options associated to the order, chosen by the client.';
+    $padopt_field->save();
 
-    $this->message("Created new field $padOptField");
+    $this->message("Created new field {$padopt_field}");
 
     $padorder_product = $this->templates->get('padorder_product');
-    $padorder_product->fields->add($padOptField);
+    $padorder_product->fields->add($padopt_field);
     $padorder_product->fields->save();
 
-    $this->message("Added field $padOptField to the padorder_product template");
+    $this->message("Added field {$padopt_field} to the padorder_product template");
   }
 
   public function uninstall() {
     $padorder_product = $this->templates->get('padorder_product');
-    $padOptField = $this->fields->get($this->field_name);
-    $padorder_product->fields->remove($padOptField);
+    $padopt_field = $this->fields->get($this->field_name);
+    $padorder_product->fields->remove($padopt_field);
     $padorder_product->fields->save();
 
-    $this->message("Removed field $padOptField from the padorder_product template");
+    $this->message("Removed field {$padopt_field} from the padorder_product template");
 
-    $this->fields->delete($padOptField);
+    $this->fields->delete($padopt_field);
 
-    $this->message("Removed field $padOptField");
+    $this->message("Removed field {$padopt_field}");
 
-    $sql = "ALTER TABLE $this->db_padcart DROP $this->db_optcolumn";
+    $sql = "ALTER TABLE {$this->db_padcart} DROP {$this->db_optcolumn}";
     $this->database->exec($sql);
 
-    $this->message("Dropped SQL column $this->db_optcolumn in carts");
+    $this->message("Dropped SQL column {$this->db_optcolumn} in carts");
   }
 }

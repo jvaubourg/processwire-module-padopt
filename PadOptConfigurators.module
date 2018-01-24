@@ -1,0 +1,84 @@
+<?php
+class PadOptConfigurators extends WireData implements Module {
+  protected $img_path = 'files/padoptconfigurators/';
+  protected $class_maindiv = 'padopt-configurator';
+  protected $class_viewport = 'padopt-configurator-viewport';
+  protected $id_prefix = 'padoptconf-';
+  protected $padopt;
+
+  public static function getModuleInfo() {
+    return array(
+      'title' => 'PadLoper Client Configurators',
+      'version' => 1,
+      'summary' => 'Add client graphical configurators to products for PadLoper',
+      'icon' => 'cubes',
+      'href' => 'https://github.com/jvaubourg/processwire-module-padopt',
+      'author' => 'Julien Vaubourg',
+      'singular' => true,
+      'autoload' => true,
+      'requires' => 'PadOpt',
+    );
+  }
+
+  public function init() {
+    $this->padopt = wire('modules')->get('PadOpt');
+
+    $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
+  }
+
+  public function addScriptsAndStyles($event) {
+    $page = $event->object; 
+    $module_url = $this->config->urls->siteModules . basename(__DIR__);
+    
+    if(strpos($page->template, $this->padopt->getTplPrefix()) === 0) {
+      $scripts = <<<EOT
+        <script>
+          const padoptconf_inputprefix = '{$this->padopt->getInputPrefix()}';
+          const padoptconf_classviewport = '{$this->class_viewport}';
+          const padoptconf_classmaindiv = '{$this->class_maindiv}';
+          const padoptconf_idprefix = '{$this->id_prefix}';
+          const padoptconf_imgurl = '{$this->urls->site}{$this->img_path}';
+        </script>
+EOT;
+      $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padoptconfigurators.js'></script>";
+      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padoptconfigurators.css' rel='stylesheet' />";
+
+      $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
+    }
+  }
+
+  public function renderConfigurator($template) {
+    $page = new Page();
+    $page->template = $template;
+    $fields = $page->getInputfields();
+  
+    $divs = array();
+    $divs[] = "<div class='{$this->class_viewport}'>";
+    
+    foreach($fields as $field) {
+      if(strpos($field->name, $this->padopt->getInputPrefix()) === 0) {
+        $divs[] = "<div id='{$this->id_prefix}{$field->name}'>";
+      }
+    }
+  
+    $render = "<div class='{$this->class_maindiv}'>";
+    $render .= implode('', $divs);
+  
+    for($i = 0; $i < count($divs); $i++) {
+      $render .= '</div>';
+    }
+
+    $render .= $this->padopt->renderFieldset($template);
+    $render .= '</div>';
+
+    return $render;
+  }
+
+  public function install() {
+
+  }
+
+  public function uninstall() {
+
+  }
+}

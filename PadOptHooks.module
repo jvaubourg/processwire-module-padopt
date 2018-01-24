@@ -148,15 +148,18 @@ class PadOptHooks extends WireData implements Module {
 
         if($i < count($bodyrows) - 1) {
           $serialized_options = $order->pad_products[$i]->{$this->field_name};
-	  $options = unserialize($serialized_options);
-	  $options_list = '<ul>';
 
-	  foreach($options as $name => $value) {
-	    $options_list .= "<li>$name : $value</li>";
-	  }
+          if(!empty($serialized_options)) {
+            $options = unserialize($serialized_options);
+            $options_list = '<ul>';
 
-	  $options_list .= '</ul>';
-          $bodycols[0] .= $options_list;
+            foreach($options as $name => $value) {
+              $options_list .= "<li>$name : $value</li>";
+            }
+
+            $options_list .= '</ul>';
+            $bodycols[0] .= $options_list;
+          }
         }
 
         $bodyrows[$i] = implode('</td>', $bodycols);
@@ -172,6 +175,26 @@ class PadOptHooks extends WireData implements Module {
     } else {
       $this->error("Cannot show products options");
     }
+  }
+
+  // Inspired from https://github.com/ryancramerdesign/FormTemplateProcessor
+  public function renderFieldset($template) {
+    $form = $this->modules->get('InputfieldForm');
+
+    $page = new Page();
+    $page->template = $template;
+    $fields = $page->getInputfields();
+    
+    foreach($fields as $field) {
+      if(strpos($field->name, $this->input_prefix) === 0) {
+        $form->add($field);
+      }
+    }
+
+    $formRender = $form->render();
+    $fieldsetRender = preg_replace('/<\/?form[^>]*>/', '', $formRender);
+
+    return $fieldsetRender;
   }
 
   public function install() {

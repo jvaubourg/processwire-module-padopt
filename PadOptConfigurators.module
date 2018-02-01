@@ -1,5 +1,10 @@
 <?php
-class PadOptConfigurators extends WireData implements Module {
+include_once(__DIR__ . DIRECTORY_SEPARATOR . 'PadOptSubmodule.interface');
+
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
+  protected $input_prefix = 'inputconfigurator_';
   protected $img_path = 'files/padoptconfigurators/';
   protected $class_maindiv = 'padopt-configurator';
   protected $class_viewport = 'padopt-configurator-viewport';
@@ -22,6 +27,7 @@ class PadOptConfigurators extends WireData implements Module {
 
   public function init() {
     $this->padopt = wire('modules')->get('PadOpt');
+    $this->padopt->registerSubmodule($this);
 
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
   }
@@ -33,7 +39,7 @@ class PadOptConfigurators extends WireData implements Module {
     if(strpos($page->template, $this->padopt->getTplPrefix()) === 0) {
       $scripts = <<<EOT
         <script>
-          const padoptconf_inputprefix = '{$this->padopt->getInputPrefix()}';
+          const padoptconf_inputprefix = '{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}';
           const padoptconf_classviewport = '{$this->class_viewport}';
           const padoptconf_classmaindiv = '{$this->class_maindiv}';
           const padoptconf_idprefix = '{$this->id_prefix}';
@@ -47,38 +53,29 @@ EOT;
     }
   }
 
-  public function renderConfigurator($template) {
-    $page = new Page();
-    $page->template = $template;
-    $fields = $page->getInputfields();
-  
-    $divs = array();
-    $divs[] = "<div class='{$this->class_viewport}'>";
+  public function getInputPrefix() {
+    return $this->input_prefix;
+  }
+
+  public function render($fields) {
+    $form = $this->modules->get('InputfieldForm');
+
+    $render = "<div class='{$this->class_maindiv}'>";
+    $render .= "<div class='{$this->class_viewport}'>";
     
     foreach($fields as $field) {
-      if(strpos($field->name, $this->padopt->getInputPrefix()) === 0) {
-        $divs[] = "<div id='{$this->id_prefix}{$field->name}'>";
-      }
+      $render .= "<div id='{$this->id_prefix}{$field->name}'>";
+      $form->add($field);
     }
   
-    $render = "<div class='{$this->class_maindiv}'>";
-    $render .= implode('', $divs);
-  
-    for($i = 0; $i < count($divs); $i++) {
+    foreach($fields as $field) {
       $render .= '</div>';
     }
 
-    $render .= $this->padopt->renderFieldset($template);
+    $render .= '</div>';
+    $render .= preg_replace('/<\/?form[^>]*>/', '', $form->render());
     $render .= '</div>';
 
     return $render;
-  }
-
-  public function install() {
-
-  }
-
-  public function uninstall() {
-
   }
 }

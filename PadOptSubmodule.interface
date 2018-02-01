@@ -1,0 +1,5 @@
+<?php
+interface PadOptSubmodule {
+  public function getInputPrefix();
+  public function render($fields);
+}

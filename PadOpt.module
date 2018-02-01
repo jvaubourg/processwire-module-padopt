@@ -201,6 +201,14 @@ class PadOpt extends WireData implements Module {
         $formPartIndex++;
         $formParts[$formPartIndex] = "<h2>{$field->label}</h2>";
 
+	if(!empty($field->description)) {
+          $formParts[$formPartIndex] .= "<div>{$field->description}</div>";
+        }
+
+	if(!empty($field->notes)) {
+          $formParts[$formPartIndex] .= "<div>{$field->notes}</div>";
+        }
+
       } elseif(strpos($field->name, $this->input_prefix) === 0) {
         if($formPartIndex < 0 || is_string($formParts[$formPartIndex])) {
           $formPartIndex++;

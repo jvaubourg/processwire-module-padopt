@@ -6,9 +6,12 @@ ini_set('display_errors', '1');
 class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
   protected $input_prefix = 'inputconfigurator_';
   protected $img_path = 'files/padoptconfigurators/';
+  protected $img_default = 'default.png';
   protected $class_maindiv = 'padopt-configurator';
   protected $class_viewport = 'padopt-configurator-viewport';
   protected $id_prefix = 'padoptconf-';
+  protected $viewport_width;
+  protected $viewport_height;
   protected $padopt;
 
   public static function getModuleInfo() {
@@ -32,6 +35,16 @@ class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
   }
 
+  private function setViewportInfos($fields) {
+    $field_name = $fields[0]->name;
+
+    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $field_name);
+
+    $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
+    $this->viewport_width = $viewport_size[0];
+    $this->viewport_height = $viewport_size[1];
+  }
+
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
@@ -46,8 +59,19 @@ class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
           const padoptconf_imgurl = '{$this->urls->site}{$this->img_path}';
         </script>
 EOT;
+      $styles = <<<EOT
+        <style>
+          .{$this->class_viewport} {
+            background-image: url({$this->urls->site}{$this->img_path}{$this->viewport_name}/{$this->img_default});
+          }
+          .{$this->class_viewport}, .{$this->class_viewport} div {
+            width: {$this->viewport_width}px;
+            height: {$this->viewport_height}px;
+          }
+        </style>
+EOT;
       $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padoptconfigurators.js'></script>";
-      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padoptconfigurators.css' rel='stylesheet' />";
+      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padoptconfigurators.css' rel='stylesheet' />";
 
       $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }
@@ -59,6 +83,8 @@ EOT;
 
   public function render($fields) {
     $form = $this->modules->get('InputfieldForm');
+
+    $this->setViewportInfos($fields);
 
     $render = "<div class='{$this->class_maindiv}'>";
     $render .= "<div class='{$this->class_viewport}'>";

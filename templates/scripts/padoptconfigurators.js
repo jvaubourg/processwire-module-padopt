@@ -20,5 +20,9 @@ function locateConfigurators() {
 
 function changeModifier() {
   var viewport_layer = document.getElementById(padoptconf_idprefix + this.name);
-  viewport_layer.style.backgroundImage = 'url(' + padoptconf_imgurl + this.name + '_' + this.value + '.png)';
+
+  var img_name_regex = new RegExp('^' + padoptconf_inputprefix, 'i');
+  var img_name = this.name.replace(img_name_regex, '');
+
+  viewport_layer.style.backgroundImage = 'url(' + padoptconf_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
 }

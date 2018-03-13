@@ -4,7 +4,7 @@ include_once(__DIR__ . DIRECTORY_SEPARATOR . 'PadOptSubmodule.interface');
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
-  protected $input_prefix = 'inputconfigurator_';
+  protected $input_prefix = 'inconf_';
   protected $img_path = 'files/padoptconfigurators/';
   protected $img_default = 'default.png';
   protected $class_maindiv = 'padopt-configurator';

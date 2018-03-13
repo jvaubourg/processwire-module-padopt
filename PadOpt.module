@@ -6,8 +6,8 @@ class PadOpt extends WireData implements Module {
   protected $tpl_prefix = 'padopt_';
   protected $input_padopt_enabled = 'padopt';
   protected $general_input_prefix = 'padopt_';
-  protected $input_prefix = 'input_';
-  protected $separator_prefix = 'separator_';
+  protected $input_prefix = 'in_';
+  protected $separator_prefix = 'sep_';
 
   protected $session_id;
   protected $stored_options = array();
@@ -32,10 +32,40 @@ class PadOpt extends WireData implements Module {
     $this->input_prefix = "{$this->general_input_prefix}{$this->input_prefix}";
     $this->separator_prefix = "{$this->general_input_prefix}{$this->separator_prefix}";
 
+    $this->addHookAfter('ProcessPageEdit::buildForm', $this, 'addTemplateSelect');
     $this->addHookBefore('PadLoper::add', $this, 'storeProductOptions');
     $this->addHookAfter('PadCart::addProduct', $this, 'addProductOptionsToCart');
     $this->addHookAfter('PadOrder::parseCart', $this, 'convertCartWithOptionsToOrder');
+    $this->addHookAfter('PadCart::getProductPrice', $this, 'customizePriceWithOptions');
     $this->addHookAfter('PadProcess::executeViewOrder', $this, 'addOptionsToViewOrder');
+  }
+
+  // after ProcessPageEdit::buildForm
+  public function addTemplateSelect($event) {
+    $form = $event->return;
+    $field_id = $form->getChildByName('padopt_tpl_id');
+
+    if($field_id != null) {
+      $field_select = $this->modules->get('InputfieldSelect');
+
+      $field_select->name = $field_id->name;
+      $field_select->label = __("Form");
+      $field_select->description = __("Choose the template you have created for defining the form to display on this page.");
+
+      foreach(wire('templates')->getAll() as $key => $template) {
+        if(!($template->flags & Template::flagSystem)) {
+          $field_select->addOption($key, $template);
+        }
+      }
+
+      $field_select->value = $field_id->value;
+      $form->remove($field_id);
+
+      $field_title = $form->getChildByName('title');
+      $form->insertAfter($field_select, $field_title);
+
+      $event->return = $form;
+    }
   }
 
   // before PadLoper::add
@@ -130,6 +160,11 @@ class PadOpt extends WireData implements Module {
         }
       }  
     }
+  }
+
+  // after PadCart::getProductPrice
+  public function customizePriceWithOptions($event) {
+
   }
 
   // after PadProcess::executeViewOrder

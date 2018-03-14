@@ -192,6 +192,46 @@ class PadOpt extends WireData implements Module {
 
   }
 
+  private function renderOptionsHtml($options) {
+    $options_list = '<ul class="padopt_included_options">';
+
+    foreach($options as $name => $value) {
+      if($name != 'product_id') {
+        $field_label = $this->fields->get($name)->label;
+        $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
+
+        if(strpos($value, '|') !== false) {
+          $subvalues = explode('|', $value);
+          $field_txt = '<ul>';
+
+          foreach($subvalues as $subvalue) {
+            $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
+          }
+
+          $field_txt .= '</ul>';
+
+        } else {
+          $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
+        }
+
+        $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
+      }
+    }
+
+    $options_list .= '</ul>';
+
+    $product_id = $options['product_id'];
+    $json_options = json_encode($options);
+    $url_options = urlencode($json_options);
+    $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+
+    $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
+    $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
+
+    return $view_buttons.$options_list;
+  }
+
+
   // after PadProcess::executeViewOrder
   public function addOptionsToViewOrder($event) {
     $id = (int) $this->input->get->id;
@@ -219,42 +259,7 @@ class PadOpt extends WireData implements Module {
 
           if(!empty($serialized_options)) {
             $options = unserialize($serialized_options);
-            $options_list = '<ul class="padopt_included_options">';
-
-            foreach($options as $name => $value) {
-              if($name != 'product_id') {
-                $field_label = $this->fields->get($name)->label;
-                $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
-
-                if(strpos($value, '|') !== false) {
-                  $subvalues = explode('|', $value);
-                  $field_txt = '<ul>';
-
-                  foreach($subvalues as $subvalue) {
-                    $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
-                  }
-
-                  $field_txt .= '</ul>';
-
-                } else {
-                  $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
-                }
-
-                $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
-              }
-            }
-
-            $options_list .= '</ul>';
-
-	    $product_id = $options['product_id'];
-	    $json_options = json_encode($options);
-	    $url_options = urlencode($json_options);
-	    $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
-
-	    $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
-	    $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
-
-            $bodycols[0] .= $view_buttons.$options_list;
+            $bodycols[0] .= $this->renderOptionsHtml($options);
           }
         }
 
@@ -357,6 +362,26 @@ class PadOpt extends WireData implements Module {
     }
 
     return $render;
+  }
+
+  public function renderCartOptions($product) {
+    $sql = "SELECT {$this->db_optcolumn} FROM {$this->db_padcart} WHERE product_id = :product_id AND variation_id = :variation_id AND sess_id = :sess_id LIMIT 1";
+    $sth = $this->database->prepare($sql);
+    $sth->bindParam(":product_id", $product->product_id);
+    $sth->bindParam(":variation_id", $product->variation_id);
+    $sth->bindParam(":sess_id", $this->session_id);
+    $sth->execute();
+
+    $serialized_options = $sth->fetchAll(\PDO::FETCH_CLASS);
+    $serialized_options = $serialized_options[0];
+    $options = unserialize($serialized_options->{$this->db_optcolumn});
+    $json_options = json_encode($options);
+    $url_options = urlencode($json_options);
+
+    $view_url = "{$this->pages->get($product->product_id)->url}#{$url_options}";
+    $view_link = "<a href='{$view_url}' target='_blank'>" . __('With options') . '</a>';
+    
+    return $view_link;
   }
 
   public function install() {

@@ -189,7 +189,16 @@ class PadOpt extends WireData implements Module {
 
   // after PadCart::getProductPrice
   public function customizePriceWithOptions($event) {
+    $product = $event->arguments('product');
+    $product_id = $product->id;
+    $variation_id = $event->arguments('variation_id');
+    $pricefield = $event->object->pricefield;
+    $price = (float) $product->$pricefield;
 
+    $options = $this->getCartProductOptions($product_id, $variation_id);
+    $options_price = (float) $this->getCartProductOptionsPrice($options);
+
+    $event->return = $price + $options_price;
   }
 
   private function renderOptionsHtml($options) {
@@ -199,19 +208,27 @@ class PadOpt extends WireData implements Module {
       if($name != 'product_id') {
         $field_label = $this->fields->get($name)->label;
         $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
+        $field_txt = '';
 
-        if(strpos($value, '|') !== false) {
-          $subvalues = explode('|', $value);
-          $field_txt = '<ul>';
-
-          foreach($subvalues as $subvalue) {
-            $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
-          }
-
-          $field_txt .= '</ul>';
+        if(empty($field_options)) {
+          $field_txt = "<em>$value</em>";
 
         } else {
-          $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
+          if(strpos($value, '|') !== false) {
+            $subvalues = explode('|', $value);
+            $field_txt = '<ul>';
+  
+            foreach($subvalues as $subvalue) {
+              $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
+            }
+  
+            $field_txt .= '</ul>';
+  
+          } else {
+            if(!empty($value)) {
+              $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
+            }
+          }
         }
 
         $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
@@ -364,24 +381,78 @@ class PadOpt extends WireData implements Module {
     return $render;
   }
 
-  public function renderCartOptions($product) {
+  private function getCartProductOptions($product_id, $variation_id) {
     $sql = "SELECT {$this->db_optcolumn} FROM {$this->db_padcart} WHERE product_id = :product_id AND variation_id = :variation_id AND sess_id = :sess_id LIMIT 1";
     $sth = $this->database->prepare($sql);
-    $sth->bindParam(":product_id", $product->product_id);
-    $sth->bindParam(":variation_id", $product->variation_id);
+    $sth->bindParam(":product_id", $product_id);
+    $sth->bindParam(":variation_id", $variation_id);
     $sth->bindParam(":sess_id", $this->session_id);
     $sth->execute();
 
     $serialized_options = $sth->fetchAll(\PDO::FETCH_CLASS);
     $serialized_options = $serialized_options[0];
     $options = unserialize($serialized_options->{$this->db_optcolumn});
-    $json_options = json_encode($options);
-    $url_options = urlencode($json_options);
 
-    $view_url = "{$this->pages->get($product->product_id)->url}#{$url_options}";
-    $view_link = "<a href='{$view_url}' target='_blank'>" . __('With options') . '</a>';
+    return $options;
+  }
+
+  private function extractOptionPriceFromTitle($title) {
+    $option_price = 0;
+
+    preg_match('/\+\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s*.+\s*\)/', $title, $matches);
+
+    if(count($matches) > 1) {
+      $option_price = $matches[1];
+    }
+
+    return $option_price;
+  }
+
+  private function getCartProductOptionsPrice($options) {
+    $options_price = 0;
+
+    foreach($options as $name => $value) {
+      if($name != 'product_id') {
+        $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
+  
+        if(!empty($field_options)) {
+          if(strpos($value, '|') !== false) {
+            $subvalues = explode('|', $value);
     
-    return $view_link;
+            foreach($subvalues as $subvalue) {
+              $options_price += $this->extractOptionPriceFromTitle($field_options->get($subvalue)->data['title']);
+            }
+    
+          } else {
+            if($value != '') {
+              $options_price += $this->extractOptionPriceFromTitle($field_options->get($value)->data['title']);
+            }
+          }
+        }
+      }
+    }
+
+    return $options_price;
+  }
+
+  public function getCartProductOptionsInfos($product) {
+    $options = $this->getCartProductOptions($product->product_id, $product->variation_id);
+    $view_link = '';
+    $options_list = '';
+    $options_price = '';
+
+    if(!empty($options)) {
+      $json_options = json_encode($options);
+      $url_options = urlencode($json_options);
+  
+      $view_url = "{$this->pages->get($product->product_id)->url}#{$url_options}";
+      $options_list = $this->renderOptionsHtml($options);
+      $options_price = $this->getCartProductOptionsPrice($options);
+    }
+
+    $infos = array($view_url, $options_list, $options_price);
+    
+    return $infos;
   }
 
   public function install() {

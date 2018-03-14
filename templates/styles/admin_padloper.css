@@ -1,0 +1,16 @@
+.padopt_included_options {
+  display: none;
+}
+
+.padopt_included_options, .padopt_included_options ul {
+  margin-left: 1em;
+}
+
+.padopt_included_options li {
+  padding: 0;
+  margin: 0;
+}
+
+.padopt_included_options ul li::before {
+  content: '\2713';
+}

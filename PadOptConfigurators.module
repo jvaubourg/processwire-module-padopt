@@ -3,6 +3,7 @@ include_once(__DIR__ . DIRECTORY_SEPARATOR . 'PadOptSubmodule.interface');
 
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
+
 class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
   protected $input_prefix = 'inconf_';
   protected $img_path = 'files/padoptconfigurators/';
@@ -29,27 +30,28 @@ class PadOptConfigurators extends WireData implements PadOptSubmodule, Module {
   }
 
   public function init() {
-    $this->padopt = wire('modules')->get('PadOpt');
+    $this->padopt = $this->modules->get('PadOpt');
     $this->padopt->registerSubmodule($this);
 
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
   }
 
-  private function setViewportInfos($fields) {
-    $field_name = $fields[0]->name;
+  private function setViewportInfos($inputfields) {
+    $inputfield_name = $inputfields[0]->name;
 
-    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $field_name);
+    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
 
     $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
     $this->viewport_width = $viewport_size[0];
     $this->viewport_height = $viewport_size[1];
   }
 
+  // after Page::render
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
     
-    if(strpos($page->template, $this->padopt->getTplPrefix()) === 0) {
+    if($page->template->fields->get($this->padopt->getFieldTplName())) {
       $scripts = <<<EOT
         <script>
           const padoptconf_inputprefix = '{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}';
@@ -81,20 +83,20 @@ EOT;
     return $this->input_prefix;
   }
 
-  public function render($fields) {
+  public function render($inputfields) {
     $form = $this->modules->get('InputfieldForm');
 
-    $this->setViewportInfos($fields);
+    $this->setViewportInfos($inputfields);
 
     $render = "<div class='{$this->class_maindiv}'>";
     $render .= "<div class='{$this->class_viewport}'>";
     
-    foreach($fields as $field) {
-      $render .= "<div id='{$this->id_prefix}{$field->name}'>";
-      $form->add($field);
+    foreach($inputfields as $inputfield) {
+      $render .= "<div id='{$this->id_prefix}{$inputfield->name}'>";
+      $form->add($inputfield);
     }
   
-    foreach($fields as $field) {
+    foreach($inputfields as $inputfield) {
       $render .= '</div>';
     }
 

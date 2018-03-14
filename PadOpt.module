@@ -1,9 +1,15 @@
 <?php
+
+# automatic tagging for fields and templates
+# configurator => livecustomization
+# use fieldsets for livecustoms
+# set random variation_id in hook
+
 class PadOpt extends WireData implements Module {
   protected $db_padcart = 'padcart';
   protected $db_optcolumn = 'padopt_options';
-  protected $field_name = 'padopt_options';
-  protected $tpl_prefix = 'padopt_';
+  protected $field_options_name = 'padopt_options';
+  protected $field_tpl_name = 'padopt_tpl_id';
   protected $input_padopt_enabled = 'padopt';
   protected $general_input_prefix = 'padopt_';
   protected $input_prefix = 'in_';
@@ -37,32 +43,46 @@ class PadOpt extends WireData implements Module {
     $this->addHookAfter('PadCart::addProduct', $this, 'addProductOptionsToCart');
     $this->addHookAfter('PadOrder::parseCart', $this, 'convertCartWithOptionsToOrder');
     $this->addHookAfter('PadCart::getProductPrice', $this, 'customizePriceWithOptions');
+    $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
     $this->addHookAfter('PadProcess::executeViewOrder', $this, 'addOptionsToViewOrder');
+  }
+
+  // after Page::render
+  public function addScriptsAndStyles($event) {
+    $page = $event->object; 
+    $module_url = $this->config->urls->siteModules . basename(__DIR__);
+    
+    if($page->template->name == 'admin' && $page->name == 'padloper') {
+      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/admin_padloper.js'></script>";
+      $styles = "<link type='text/css' href='{$module_url}/templates/styles/admin_padloper.css' rel='stylesheet' />";
+
+      $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
+    }
   }
 
   // after ProcessPageEdit::buildForm
   public function addTemplateSelect($event) {
     $form = $event->return;
-    $field_id = $form->getChildByName('padopt_tpl_id');
+    $inputfield_int_id = $form->getChildByName($this->field_tpl_name);
 
-    if($field_id != null) {
-      $field_select = $this->modules->get('InputfieldSelect');
+    if($inputfield_int_id != null) {
+      $inputfield_select_tpl = $this->modules->get('InputfieldSelect');
 
-      $field_select->name = $field_id->name;
-      $field_select->label = __("Form");
-      $field_select->description = __("Choose the template you have created for defining the form to display on this page.");
+      $inputfield_select_tpl->name = $inputfield_int_id->name;
+      $inputfield_select_tpl->label = __("Form");
+      $inputfield_select_tpl->description = __("Choose the template you have created for defining the form to display on this page.");
 
-      foreach(wire('templates')->getAll() as $key => $template) {
+      foreach($this->templates->getAll() as $key => $template) {
         if(!($template->flags & Template::flagSystem)) {
-          $field_select->addOption($key, $template);
+          $inputfield_select_tpl->addOption($key, $template);
         }
       }
 
-      $field_select->value = $field_id->value;
-      $form->remove($field_id);
+      $inputfield_select_tpl->value = $inputfield_int_id->value;
+      $form->remove($inputfield_int_id);
 
       $field_title = $form->getChildByName('title');
-      $form->insertAfter($field_select, $field_title);
+      $form->insertAfter($inputfield_select_tpl, $field_title);
 
       $event->return = $form;
     }
@@ -92,6 +112,10 @@ class PadOpt extends WireData implements Module {
 
       foreach($event->object->input->post as $input => $value) {
         if(strpos($input, $this->general_input_prefix) === 0) {
+	  if(is_array($value)) {
+            $value = implode('|', $value);
+          }
+
           // text() allows 255 chars max
           $options[$this->sanitizer->fieldName($input)] = $this->sanitizer->text($value);
         }
@@ -114,6 +138,7 @@ class PadOpt extends WireData implements Module {
   
         if($cart_row_id) {
           $options = $this->stored_options[$this->session_id][$product_id][$variation_id];
+	  $options['product_id'] = $product_id;
           $serialized_options = serialize($options);
   
           $sql = "UPDATE {$this->db_padcart} SET {$this->db_optcolumn} = :options WHERE sess_id = :sess_id AND id = :id";  
@@ -149,7 +174,7 @@ class PadOpt extends WireData implements Module {
         $order_product = $event->object->pad_products->find("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
 
         if($order_product->count == 1) {
-          $order_product[0]->{$this->field_name} = $cart_product->{$this->db_optcolumn};
+          $order_product[0]->{$this->field_options_name} = $cart_product->{$this->db_optcolumn};
           $order_product[0]->save();
 
         } elseif($order_product->count > 1) {
@@ -181,7 +206,7 @@ class PadOpt extends WireData implements Module {
 
     if($order->pad_products->count == count($bodyrows) - 1) {
       $headcols = explode('</th>', $thead[0]);
-      $headcols[0] .= '</th><th>Included Options';
+      $headcols[0] .= '</th><th>' . __("Included Options");
 
       $thead = implode('</th>', $headcols);
 
@@ -190,18 +215,46 @@ class PadOpt extends WireData implements Module {
         $bodycols[0] .= '</td><td>';
 
         if($i < count($bodyrows) - 1) {
-          $serialized_options = $order->pad_products[$i]->{$this->field_name};
+          $serialized_options = $order->pad_products[$i]->{$this->field_options_name};
 
           if(!empty($serialized_options)) {
             $options = unserialize($serialized_options);
-            $options_list = '<ul>';
+            $options_list = '<ul class="padopt_included_options">';
 
             foreach($options as $name => $value) {
-              $options_list .= "<li>{$name} : {$value}</li>";
+              if($name != 'product_id') {
+                $field_label = $this->fields->get($name)->label;
+                $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
+
+                if(strpos($value, '|') !== false) {
+                  $subvalues = explode('|', $value);
+                  $field_txt = '<ul>';
+
+                  foreach($subvalues as $subvalue) {
+                    $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
+                  }
+
+                  $field_txt .= '</ul>';
+
+                } else {
+                  $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
+                }
+
+                $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
+              }
             }
 
             $options_list .= '</ul>';
-            $bodycols[0] .= $options_list;
+
+	    $product_id = $options['product_id'];
+	    $json_options = json_encode($options);
+	    $url_options = urlencode($json_options);
+	    $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+
+	    $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
+	    $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
+
+            $bodycols[0] .= $view_buttons.$options_list;
           }
         }
 
@@ -225,6 +278,10 @@ class PadOpt extends WireData implements Module {
     $this->registered_submodules["{$this->general_input_prefix}{$input_prefix}"] = $submodule;
   }
 
+  public function getFieldTplName() {
+    return $this->field_tpl_name;
+  }
+
   public function getInputPrefix() {
     return $this->input_prefix;
   }
@@ -233,38 +290,36 @@ class PadOpt extends WireData implements Module {
     return $this->general_input_prefix;
   }
 
-  public function getTplPrefix() {
-    return $this->tpl_prefix;
-  }
+  public function renderFieldset() {
+    $template = $this->templates->get($this->page->get($this->field_tpl_name));
 
-  public function renderFieldset($template) {
     $page = new Page();
     $page->template = $template;
-    $fields = $page->getInputfields();
+    $inputfields = $page->getInputfields();
 
-    $field_groups = array();
-    $field_groups_id = 0;
+    $inputfield_groups = array();
+    $inputfield_groups_id = 0;
     
-    foreach($fields as $field) {
-      preg_match("/^{$this->general_input_prefix}[^_]+_/", $field->name, $prefix);
+    foreach($inputfields as $inputfield) {
+      preg_match("/^{$this->general_input_prefix}[^_]+_/", $inputfield->name, $prefix);
 
       if(!empty($prefix)) {
         $prefix = $prefix[0];
 
-        if(empty($field_groups)) {
-          $field_groups[] = array(
+        if(empty($inputfield_groups)) {
+          $inputfield_groups[] = array(
             'prefix' => $prefix,
-            'fields' => array($field),
+            'inputfields' => array($inputfield),
           );
 
         } else {
-          if($field_groups[$field_groups_id]['prefix'] == $prefix) {
-            $field_groups[$field_groups_id]['fields'][] = $field;
+          if($inputfield_groups[$inputfield_groups_id]['prefix'] == $prefix) {
+            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
 
           } else {
-            $field_groups_id++;
-            $field_groups[$field_groups_id]['prefix'] = $prefix;
-            $field_groups[$field_groups_id]['fields'][] = $field;
+            $inputfield_groups_id++;
+            $inputfield_groups[$inputfield_groups_id]['prefix'] = $prefix;
+            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
           }
         }
       }
@@ -272,32 +327,32 @@ class PadOpt extends WireData implements Module {
 
     $render = '';
 
-    foreach($field_groups as $field_group) {
-      if($field_group['prefix'] == $this->separator_prefix) {
-        $separator = "<h2>{$field_group['fields'][0]->label}</h2>";
+    foreach($inputfield_groups as $inputfield_group) {
+      if($inputfield_group['prefix'] == $this->separator_prefix) {
+        $separator = "<h2>{$inputfield_group['inputfields'][0]->label}</h2>";
 
-	if(!empty($field->description)) {
-          $separator .= "<div>{$field_group['fields'][0]->description}</div>";
+	if(!empty($inputfield->description)) {
+          $separator .= "<div>{$inputfield_group['inputfields'][0]->description}</div>";
         }
 
-	if(!empty($field->notes)) {
-          $separator .= "<div>{$field_group['fields'][0]->notes}</div>";
+	if(!empty($inputfield->notes)) {
+          $separator .= "<div>{$inputfield_group['inputfields'][0]->notes}</div>";
         }
 
         $render .= $separator;
 
-      } elseif($field_group['prefix'] == $this->input_prefix) {
+      } elseif($inputfield_group['prefix'] == $this->input_prefix) {
         $form = $this->modules->get('InputfieldForm');
 
-        foreach($field_group['fields'] as $field) {
-          $form->add($field);
+        foreach($inputfield_group['inputfields'] as $inputfield) {
+          $form->add($inputfield);
         }
 
         $form_render = $form->render();
         $render .= preg_replace('/<\/?form[^>]*>/', '', $form_render);
 
-      } elseif(isset($this->registered_submodules[$field_group['prefix']])) {
-        $render .= $this->registered_submodules[$field_group['prefix']]->render($field_group['fields']);
+      } elseif(isset($this->registered_submodules[$inputfield_group['prefix']])) {
+        $render .= $this->registered_submodules[$inputfield_group['prefix']]->render($inputfield_group['inputfields']);
       }
     }
 
@@ -310,33 +365,45 @@ class PadOpt extends WireData implements Module {
 
     $this->message("Created new SQL column {$this->db_optcolumn} in carts");
 
-    $padopt_field = new Field();
-    $padopt_field->type = $this->modules->get('FieldtypeTextarea');
-    $padopt_field->name = $this->field_name;
-    $padopt_field->label = 'Order Options for PadLoper';
-    $padopt_field->description = 'Options associated to the order, chosen by the client.';
-    $padopt_field->save();
+    $field_tpl = new Field();
+    $field_tpl->type = $this->modules->get('FieldtypeInteger');
+    $field_tpl->name = $this->field_tpl_name;
+    $field_tpl->label = 'Form Template Id for PadOpt pages';
+    $field_tpl->description = 'Id of the template to use to build the options form in PadOpt pages.';
+    $field_tpl->save();
 
-    $this->message("Created new field {$padopt_field}");
+    $this->message("Created new field {$field_tpl}");
+
+    $field_options = new Field();
+    $field_options->type = $this->modules->get('FieldtypeTextarea');
+    $field_options->name = $this->field_options_name;
+    $field_options->label = 'Order Options for PadLoper';
+    $field_options->description = 'Options associated to the order, chosen by the client.';
+    $field_options->save();
+
+    $this->message("Created new field {$field_options}");
 
     $padorder_product = $this->templates->get('padorder_product');
-    $padorder_product->fields->add($padopt_field);
+    $padorder_product->fields->add($field_options);
     $padorder_product->fields->save();
 
-    $this->message("Added field {$padopt_field} to the padorder_product template");
+    $this->message("Added field {$field_options} to the padorder_product template");
   }
 
   public function uninstall() {
     $padorder_product = $this->templates->get('padorder_product');
-    $padopt_field = $this->fields->get($this->field_name);
-    $padorder_product->fields->remove($padopt_field);
+    $field_options = $this->fields->get($this->field_options_name);
+    $padorder_product->fields->remove($field_options);
     $padorder_product->fields->save();
 
-    $this->message("Removed field {$padopt_field} from the padorder_product template");
+    $this->message("Removed field {$field_options} from the padorder_product template");
 
-    $this->fields->delete($padopt_field);
+    $this->fields->delete($field_options);
+    $this->message("Removed field {$field_options}");
 
-    $this->message("Removed field {$padopt_field}");
+    $field_tpl = $this->fields->get($this->field_tpl_name);
+    $this->fields->delete($field_tpl);
+    $this->message("Removed field {$field_tpl}");
 
     $sql = "ALTER TABLE {$this->db_padcart} DROP {$this->db_optcolumn}";
     $this->database->exec($sql);

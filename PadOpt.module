@@ -1,18 +1,14 @@
 <?php
 
-# automatic tagging for fields and templates
-# configurator => livecustomization
-# use fieldsets for livecustoms
-# set random variation_id in hook
-
 class PadOpt extends WireData implements Module {
   protected $db_padcart = 'padcart';
   protected $db_optcolumn = 'padopt_options';
   protected $field_options_name = 'padopt_options';
   protected $field_tpl_name = 'padopt_tpl_id';
   protected $input_padopt_enabled = 'padopt';
+  protected $tag_name = 'padopt';
   protected $general_input_prefix = 'padopt_';
-  protected $input_prefix = 'in_';
+  protected $input_prefix = 'input_';
   protected $separator_prefix = 'sep_';
 
   protected $session_id;
@@ -45,6 +41,21 @@ class PadOpt extends WireData implements Module {
     $this->addHookAfter('PadCart::getProductPrice', $this, 'customizePriceWithOptions');
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
     $this->addHookAfter('PadProcess::executeViewOrder', $this, 'addOptionsToViewOrder');
+    $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
+    $this->addHookBefore('ProcessTemplate::executeSave', $this, 'automaticTagging');
+  }
+
+  // before ProcessField::executeSave
+  // before ProcessTemplate::executeSave
+  public function automaticTagging($event) {
+    $post_values = $event->object->input->post;
+
+    if((($post_values['name'] && strpos($post_values['name'], $this->general_input_prefix) === 0)
+        || ($post_values['rename'] && strpos($post_values['rename'], $this->general_input_prefix) === 0))
+      && strpos($post_values['tags'], $this->tag_name) === false) {
+
+      $post_values['tags'] .= " {$this->tag_name}";
+    }
   }
 
   // after Page::render
@@ -237,15 +248,7 @@ class PadOpt extends WireData implements Module {
 
     $options_list .= '</ul>';
 
-    $product_id = $options['product_id'];
-    $json_options = json_encode($options);
-    $url_options = urlencode($json_options);
-    $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
-
-    $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
-    $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
-
-    return $view_buttons.$options_list;
+    return $options_list;
   }
 
 
@@ -276,7 +279,17 @@ class PadOpt extends WireData implements Module {
 
           if(!empty($serialized_options)) {
             $options = unserialize($serialized_options);
-            $bodycols[0] .= $this->renderOptionsHtml($options);
+            $options_list = $this->renderOptionsHtml($options);
+
+            $product_id = $options['product_id'];
+            $json_options = json_encode($options);
+            $url_options = base64_encode($json_options);
+            $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+        
+            $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
+            $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
+
+            $bodycols[0] .= $view_buttons.$options_list;
           }
         }
 
@@ -347,7 +360,9 @@ class PadOpt extends WireData implements Module {
       }
     }
 
-    $render = '';
+    $render = "<input type='hidden' name='padopt' value='1' />";
+    $render .= "<input type='hidden' name='variation_id' value='" . rand(100000, 1000000) . "' />";
+    $render .= "<input type='hidden' name='product_id' value='{$this->page->id}' />";
 
     foreach($inputfield_groups as $inputfield_group) {
       if($inputfield_group['prefix'] == $this->separator_prefix) {
@@ -443,7 +458,7 @@ class PadOpt extends WireData implements Module {
 
     if(!empty($options)) {
       $json_options = json_encode($options);
-      $url_options = urlencode($json_options);
+      $url_options = base64_encode($json_options);
   
       $view_url = "{$this->pages->get($product->product_id)->url}#{$url_options}";
       $options_list = $this->renderOptionsHtml($options);

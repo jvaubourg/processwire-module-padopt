@@ -1,18 +1,18 @@
 window.addEventListener('load', start, false);
 
 function start() {
-  locateConfigurators();
-  setDefaultValues();
+  locateLiveCustomizers();
+  reviewMode();
 }
 
-function locateConfigurators() {
-  var configurators = document.getElementsByClassName(padoptconf_classmaindiv);
+function locateLiveCustomizers() {
+  var livecustomizers = document.getElementsByClassName(padoptlc_classmaindiv);
 
-  for(var i = 0; i < configurators.length; i++) {
-    var modifiers = configurators[i].getElementsByTagName('select');
+  for(var i = 0; i < livecustomizers.length; i++) {
+    var modifiers = livecustomizers[i].getElementsByTagName('select');
 
     for(var j = 0; j < modifiers.length; j++) {
-      if(modifiers[j].getAttribute('name').startsWith(padoptconf_inputprefix)) {
+      if(modifiers[j].getAttribute('name').startsWith(padoptlc_inputprefix)) {
         modifiers[j].addEventListener('change', changeModifier, false);
       }
     }
@@ -20,20 +20,20 @@ function locateConfigurators() {
 }
 
 function changeModifier() {
-  var viewport_layer = document.getElementById(padoptconf_idprefix + this.name);
+  var viewport_layer = document.getElementById(padoptlc_idprefix + this.name);
 
-  var img_name_regex = new RegExp('^' + padoptconf_inputprefix, 'i');
+  var img_name_regex = new RegExp('^' + padoptlc_inputprefix, 'i');
   var img_name = this.name.replace(img_name_regex, '');
 
-  viewport_layer.style.backgroundImage = 'url(' + padoptconf_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
+  viewport_layer.style.backgroundImage = 'url(' + padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
 }
 
-function setDefaultValues() {
+function reviewMode() {
   const input_id_prefix = 'Inputfield_';
   var hash = window.location.hash.substr(1);
 
   if(hash) {
-    var options = JSON.parse(decodeURIComponent(hash));
+    var options = JSON.parse(atob(hash));
     
     if(options) {
       for(var key in options) {

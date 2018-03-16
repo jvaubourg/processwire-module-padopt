@@ -346,10 +346,10 @@ class PadOpt extends WireData implements Module {
   /***********************/
 
   /**
-   * Produce the HTML code corresponding to the options list associated to a
-   * product
+   * Produce the HTML code corresponding to the options list
    *
-   * @param 
+   * @param array $options Option values associated to a product
+   * @return string HTML code
    */
   private function renderOptionsHtml($options) {
     $options_list = '<ul class="padopt_included_options">';
@@ -364,6 +364,8 @@ class PadOpt extends WireData implements Module {
           $field_txt = "<em>$value</em>";
 
         } else {
+
+          // Values composed of multiple values (eg. checkboxes)
           if(strpos($value, '|') !== false) {
             $subvalues = explode('|', $value);
             $field_txt = '<ul>';
@@ -390,94 +392,13 @@ class PadOpt extends WireData implements Module {
     return $options_list;
   }
 
-  public function registerSubmodule($submodule) {
-    $input_prefix = $submodule->getInputPrefix();
-    $this->registered_submodules["{$this->general_input_prefix}{$input_prefix}"] = $submodule;
-  }
-
-  public function getFieldTplName() {
-    return $this->field_tpl_name;
-  }
-
-  public function getInputPrefix() {
-    return $this->input_prefix;
-  }
-
-  public function getGeneralInputPrefix() {
-    return $this->general_input_prefix;
-  }
-
-  public function renderFieldset() {
-    $template = $this->templates->get($this->page->get($this->field_tpl_name));
-
-    $page = new Page();
-    $page->template = $template;
-    $inputfields = $page->getInputfields();
-
-    $inputfield_groups = array();
-    $inputfield_groups_id = 0;
-    
-    foreach($inputfields as $inputfield) {
-      preg_match("/^{$this->general_input_prefix}[^_]+_/", $inputfield->name, $prefix);
-
-      if(!empty($prefix)) {
-        $prefix = $prefix[0];
-
-        if(empty($inputfield_groups)) {
-          $inputfield_groups[] = array(
-            'prefix' => $prefix,
-            'inputfields' => array($inputfield),
-          );
-
-        } else {
-          if($inputfield_groups[$inputfield_groups_id]['prefix'] == $prefix) {
-            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
-
-          } else {
-            $inputfield_groups_id++;
-            $inputfield_groups[$inputfield_groups_id]['prefix'] = $prefix;
-            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
-          }
-        }
-      }
-    }
-
-    $render = "<input type='hidden' name='padopt' value='1' />";
-    $render .= "<input type='hidden' name='variation_id' value='" . rand(100000, 1000000) . "' />";
-    $render .= "<input type='hidden' name='product_id' value='{$this->page->id}' />";
-
-    foreach($inputfield_groups as $inputfield_group) {
-      if($inputfield_group['prefix'] == $this->separator_prefix) {
-        $separator = "<h2>{$inputfield_group['inputfields'][0]->label}</h2>";
-
-	if(!empty($inputfield->description)) {
-          $separator .= "<div>{$inputfield_group['inputfields'][0]->description}</div>";
-        }
-
-	if(!empty($inputfield->notes)) {
-          $separator .= "<div>{$inputfield_group['inputfields'][0]->notes}</div>";
-        }
-
-        $render .= $separator;
-
-      } elseif($inputfield_group['prefix'] == $this->input_prefix) {
-        $form = $this->modules->get('InputfieldForm');
-
-        foreach($inputfield_group['inputfields'] as $inputfield) {
-          $form->add($inputfield);
-        }
-
-        $form_render = $form->render();
-        $render .= preg_replace('/<\/?form[^>]*>/', '', $form_render);
-
-      } elseif(isset($this->registered_submodules[$inputfield_group['prefix']])) {
-        $render .= $this->registered_submodules[$inputfield_group['prefix']]->render($inputfield_group['inputfields']);
-      }
-    }
-
-    return $render;
-  }
-
+  /**
+   * Return the chosen options for a product added in the current cart
+   *
+   * @param int $product_id 
+   * @param in $variation_id
+   * @return 
+   */
   private function getCartProductOptions($product_id, $variation_id) {
     $sql = "SELECT {$this->db_optcolumn} FROM {$this->db_padcart} WHERE product_id = :product_id AND variation_id = :variation_id AND sess_id = :sess_id LIMIT 1";
     $sth = $this->database->prepare($sql);
@@ -493,10 +414,17 @@ class PadOpt extends WireData implements Module {
     return $options;
   }
 
+  /**
+   * Extract the price of an option directly from its title
+   *
+   * @param string $title
+   * @return float Extracted price or zero
+   */
   private function extractOptionPriceFromTitle($title) {
     $option_price = 0;
 
-    preg_match('/\+\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s*.+\s*\)/', $title, $matches);
+    // eg. "With a golden shell (+ 499.99 €)"
+    preg_match('/\s*\(\s*\+\s*([0-9]+(?:[.,][0-9]+)?)\s*.+\s*\)/', $title, $matches);
 
     if(count($matches) > 1) {
       $option_price = $matches[1];
@@ -505,6 +433,12 @@ class PadOpt extends WireData implements Module {
     return $option_price;
   }
 
+  /**
+   * Return the total price of the chosen paid options
+   *
+   * @param array $options Option values associated to a product
+   * @return float
+   */
   private function getCartProductOptionsPrice($options) {
     $options_price = 0;
 
@@ -530,6 +464,119 @@ class PadOpt extends WireData implements Module {
     }
 
     return $options_price;
+  }
+
+
+  /**********************/
+  /** PUBLIC FUNCTIONS **/
+  /**********************/
+
+  /**
+   * A submodule is just another PW module but designed to add functionnalities
+   * to PadOpt. Registred submodules are used in renderFieldset
+   * 
+   * @param PadOptSubmodule $submodule
+   */
+  public function registerSubmodule($submodule) {
+    $input_prefix = $submodule->getInputPrefix();
+    $this->registered_submodules["{$this->general_input_prefix}{$input_prefix}"] = $submodule;
+  }
+
+  /**
+   * Return the HTML code of the input fields to add to the PadLoper form, in
+   * which there is the "Add to cart" button. This function should be called
+   * from a PadOpt product template, with a <field_tpl_name> field defined
+   *
+   * @return string HTML code
+   */
+  public function renderFieldset() {
+
+    // The template to use to build the fieldset is defined from the
+    // <field_tpl_name> field of the current page
+    $template = $this->templates->get($this->page->get($this->field_tpl_name));
+
+    // Creation of a temporary page, just to associate it with the template and
+    // to transform the template fields into input fields
+    $page = new Page();
+    $page->template = $template;
+    $inputfields = $page->getInputfields();
+
+    $inputfield_groups = array();
+    $inputfield_groups_id = 0;
+    
+    // Step 1: Group together all fields that follow each other with an identical prefix in their name
+    foreach($inputfields as $inputfield) {
+
+      // Extracts the prefix (format <general-input-prefix>_<type-prefix>_)
+      preg_match("/^{$this->general_input_prefix}[^_]+_/", $inputfield->name, $prefix);
+
+      if(!empty($prefix)) {
+        $prefix = $prefix[0];
+
+        if(empty($inputfield_groups)) {
+          $inputfield_groups[] = array(
+            'prefix' => $prefix,
+            'inputfields' => array($inputfield),
+          );
+
+        } else {
+          if($inputfield_groups[$inputfield_groups_id]['prefix'] == $prefix) {
+            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
+
+          } else {
+            $inputfield_groups_id++;
+            $inputfield_groups[$inputfield_groups_id]['prefix'] = $prefix;
+            $inputfield_groups[$inputfield_groups_id]['inputfields'][] = $inputfield;
+          }
+        }
+      }
+    }
+
+    // This hidden input is required to ask the other processes to take the options into account
+    $render = "<input type='hidden' name='{$this->input_padopt_enabled}' value='1' />";
+
+    // The variation_id is always different because the chosen options are (potentially) always different
+    $render .= "<input type='hidden' name='variation_id' value='" . rand(100000, 1000000) . "' />";
+    $render .= "<input type='hidden' name='product_id' value='{$this->page->id}' />";
+
+    // Step 2: Produce HTML output from each group of fields
+    foreach($inputfield_groups as $inputfield_group) {
+
+      // Group of separators (ie. titles with optional description/notes)
+      if($inputfield_group['prefix'] == $this->separator_prefix) {
+        $separator = "<h2>{$inputfield_group['inputfields'][0]->label}</h2>";
+
+	if(!empty($inputfield->description)) {
+          $separator .= "<div>{$inputfield_group['inputfields'][0]->description}</div>";
+        }
+
+	if(!empty($inputfield->notes)) {
+          $separator .= "<div>{$inputfield_group['inputfields'][0]->notes}</div>";
+        }
+
+        $render .= $separator;
+
+      // Group of core input fields (ie. field types available in PW)
+      } elseif($inputfield_group['prefix'] == $this->input_prefix) {
+        $form = $this->modules->get('InputfieldForm');
+
+        foreach($inputfield_group['inputfields'] as $inputfield) {
+          $form->add($inputfield);
+        }
+
+        // PW produces the HTML code by itself
+        $form_render = $form->render();
+
+        // <form> tags are not necessary because it is supposed to be a form part
+        $render .= preg_replace('/<\/?form[^>]*>/', '', $form_render);
+
+      // Group of fields defined for a registred submodule
+      } elseif(isset($this->registered_submodules[$inputfield_group['prefix']])) {
+        $render .= $this->registered_submodules[$inputfield_group['prefix']]->render($inputfield_group['inputfields']);
+      }
+    }
+
+    return $render;
   }
 
   public function getCartProductOptionsInfos($product) {
@@ -602,5 +649,17 @@ class PadOpt extends WireData implements Module {
     $this->database->exec($sql);
 
     $this->message("Dropped SQL column {$this->db_optcolumn} in carts");
+  }
+
+  public function getFieldTplName() {
+    return $this->field_tpl_name;
+  }
+
+  public function getInputPrefix() {
+    return $this->input_prefix;
+  }
+
+  public function getGeneralInputPrefix() {
+    return $this->general_input_prefix;
   }
 }

@@ -34,6 +34,8 @@ class PadOpt extends WireData implements Module {
     $this->input_prefix = "{$this->general_input_prefix}{$this->input_prefix}";
     $this->separator_prefix = "{$this->general_input_prefix}{$this->separator_prefix}";
 
+    $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
+    $this->addHookBefore('ProcessTemplate::executeSave', $this, 'automaticTagging');
     $this->addHookAfter('ProcessPageEdit::buildForm', $this, 'addTemplateSelect');
     $this->addHookBefore('PadLoper::add', $this, 'storeProductOptions');
     $this->addHookAfter('PadCart::addProduct', $this, 'addProductOptionsToCart');
@@ -41,12 +43,18 @@ class PadOpt extends WireData implements Module {
     $this->addHookAfter('PadCart::getProductPrice', $this, 'customizePriceWithOptions');
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
     $this->addHookAfter('PadProcess::executeViewOrder', $this, 'addOptionsToViewOrder');
-    $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
-    $this->addHookBefore('ProcessTemplate::executeSave', $this, 'automaticTagging');
   }
 
-  // before ProcessField::executeSave
-  // before ProcessTemplate::executeSave
+
+  /***********/
+  /** HOOKS **/
+  /***********/
+
+  /**
+   * Automatically add a <tag_name> tag to every new field and template created
+   * with a name beginning by <general_input_prefix>
+   * Act before ProcessField::executeSave and ProcessTemplate::executeSave
+   */
   public function automaticTagging($event) {
     $post_values = $event->object->input->post;
 
@@ -58,11 +66,15 @@ class PadOpt extends WireData implements Module {
     }
   }
 
-  // after Page::render
+  /**
+   * Add some JS and css in the header of every page of the PadLoper admin
+   * Act before Page::render
+   */
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
     
+    // Only for PadLoper admin pages
     if($page->template->name == 'admin' && $page->name == 'padloper') {
       $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/admin_padloper.js'></script>";
       $styles = "<link type='text/css' href='{$module_url}/templates/styles/admin_padloper.css' rel='stylesheet' />";
@@ -71,11 +83,18 @@ class PadOpt extends WireData implements Module {
     }
   }
 
-  // after ProcessPageEdit::buildForm
+  /**
+   * When an admin page is edited, replace the field named <field_tpl_name>
+   * (simple input text for integers) by a select proposing to chose one of
+   * the template available in PW. This is used when a PadOpt product page
+   * is edited
+   * Act after ProcessPageEdit::buildForm
+   */
   public function addTemplateSelect($event) {
     $form = $event->return;
     $inputfield_int_id = $form->getChildByName($this->field_tpl_name);
 
+    // Only pages proposing the target field (ie. PadOpt product pages)
     if($inputfield_int_id != null) {
       $inputfield_select_tpl = $this->modules->get('InputfieldSelect');
 
@@ -83,15 +102,18 @@ class PadOpt extends WireData implements Module {
       $inputfield_select_tpl->label = __("Form");
       $inputfield_select_tpl->description = __("Choose the template you have created for defining the form to display on this page.");
 
+      // Build a select with all available non-system templates in PW
       foreach($this->templates->getAll() as $key => $template) {
         if(!($template->flags & Template::flagSystem)) {
           $inputfield_select_tpl->addOption($key, $template);
         }
       }
 
+      // The input text version of the field is removed
       $inputfield_select_tpl->value = $inputfield_int_id->value;
       $form->remove($inputfield_int_id);
 
+      // ... and replaced by the new version with values to select
       $field_title = $form->getChildByName('title');
       $form->insertAfter($inputfield_select_tpl, $field_title);
 
@@ -99,11 +121,19 @@ class PadOpt extends WireData implements Module {
     }
   }
 
-  // before PadLoper::add
+  /**
+   * Catch the value of every input field with a name beginning by
+   * <general_input_prefix>, among the values transmitted by a page to PadLoper,
+   * when an "Add to Cart" button is pushed. These values (describing product
+   * options) are temporarily stored in an array, to be used later by
+   * addProductOptionsToCart
+   * Act before PadLoper::add
+   */
   public function storeProductOptions($event) {
     $product_id = (int) $event->arguments('id');
     $variation_id = (int) $event->arguments('variation_id');
 
+    // Only for pages containing an input field named <input_padopt_enabled>
     $is_padopt_page = ($event->object->input->post($this->input_padopt_enabled) == 1);
 
     if($is_padopt_page && !empty($product_id) && !empty($variation_id)) {
@@ -121,30 +151,45 @@ class PadOpt extends WireData implements Module {
 
       $options = &$this->stored_options[$this->session_id][$product_id][$variation_id];
 
+      // Input values are stored only when the name begins with
+      // <general_input_prefix>, corresponding to input fields generated
+      // by PadOpt
       foreach($event->object->input->post as $input => $value) {
         if(strpos($input, $this->general_input_prefix) === 0) {
+
+          // Values composed of multiple values (eg. checkboxes) are concatenated
+          // into a single value (eg. 1|2|3)
 	  if(is_array($value)) {
             $value = implode('|', $value);
           }
 
-          // text() allows 255 chars max
+          // Warn: text() allows 255 chars max
           $options[$this->sanitizer->fieldName($input)] = $this->sanitizer->text($value);
         }
       }
     }
   }
 
-  // after PadCart::addProduct
+  /**
+   * Store in db the options associated to the product to add to the cart. The
+   * values are serialized and saved in the <db_optcolumn> MySQL column of the
+   * tuple, created for the current cart by PadLoper in the hooked function
+   * Act after PadCart::addProduct
+   */
   public function addProductOptionsToCart($event) {
     $product_id = (int) $event->arguments('product_id');
     $variation_id = (int) $event->arguments('variation_id');
     $qty = (int) $event->arguments('qty');
 
+    // Only if the hooked function worked well (ie. the cart was well created in the db)
     if($event->return === true && $qty > 0) {
+
+      // If storeProductOptions found earlier some options values to store for this product
       if(array_key_exists($this->session_id, $this->stored_options)
         && array_key_exists($product_id, $this->stored_options[$this->session_id])
         && array_key_exists($variation_id, $this->stored_options[$this->session_id][$product_id])) {
 
+        // Get the id of the cart-product tuple in the db
         $cart_row_id = $event->object->checkIfProductInCart($product_id, $variation_id);
   
         if($cart_row_id) {
@@ -152,6 +197,8 @@ class PadOpt extends WireData implements Module {
 	  $options['product_id'] = $product_id;
           $serialized_options = serialize($options);
   
+          // Fill the <db_optcolumn> with all the option values associated to
+          // this product when added in the cart by the client
           $sql = "UPDATE {$this->db_padcart} SET {$this->db_optcolumn} = :options WHERE sess_id = :sess_id AND id = :id";  
           $sth = $this->database->prepare($sql);
           $sth->bindParam(":options", $serialized_options);
@@ -159,18 +206,25 @@ class PadOpt extends WireData implements Module {
           $sth->bindParam(":id", $cart_row_id);
           $sth->execute();
 
+          // Free the temporary memory allocated for jumping from storeProductOptions
+          // (values catching) to addProductOptionsToCart (values injecting)
           unset($this->stored_options[$this->session_id][$product_id][$variation_id]);
         }
-
-      } else {
-        $this->warning("No options found for the product {$product_id}/{$variation_id} in this session");
       }
     }
   }
 
-  // after PadOrder::parseCart
+  /**
+   * Move the product options stored into a db column when added to a cart, to
+   * a PW field, when the cart is converted to an order (the order pad_product
+   * page is created during the hooked function, and the db tuple is deleted
+   * just after)
+   * Act after PadOrder::parseCart
+   */
   public function convertCartWithOptionsToOrder($event) {
     if($event->object->pad_products->count > 0) {
+
+      // Get the options associated to this product and stored by addProductOptionsToCart
       $sql = "SELECT product_id, variation_id, {$this->db_optcolumn} FROM {$this->db_padcart} WHERE sess_id = :sess_id";
       $sth = $this->database->prepare($sql);
       $sth->bindParam(":sess_id", $this->session_id);
@@ -179,26 +233,36 @@ class PadOpt extends WireData implements Module {
       $cart_products = $sth->fetchAll(\PDO::FETCH_CLASS);
 
       foreach($cart_products as $cart_product) {
-        $product_id = $cart_product->product_id;
-        $variation_id = $cart_product->variation_id;
 
-        $order_product = $event->object->pad_products->find("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
+        // Only if this product was added with PadOpt options
+        if(!empty($cart_product->{$this->db_optcolumn})) {
+          $product_id = $cart_product->product_id;
+          $variation_id = $cart_product->variation_id;
 
-        if($order_product->count == 1) {
-          $order_product[0]->{$this->field_options_name} = $cart_product->{$this->db_optcolumn};
-          $order_product[0]->save();
+          // Get the pad_product page created for this product in the hooked function
+          $order_product = $event->object->pad_products->find("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
 
-        } elseif($order_product->count > 1) {
-          $this->warning("Too much products corresponding to {$product_id}/{$variation_id} in the order.");
+          if($order_product->count == 1) {
+            $order_product[0]->{$this->field_options_name} = $cart_product->{$this->db_optcolumn};
+            $order_product[0]->save();
 
-        } else {
-          $this->warning("No product corresponding to {$product_id}/{$variation_id} in the order.");
+          } elseif($order_product->count > 1) {
+            $this->warning("Too much products corresponding to {$product_id}/{$variation_id} in the order.");
+
+          } else {
+            $this->warning("No product corresponding to {$product_id}/{$variation_id} in the order.");
+          }
         }
-      }  
+      }
     }
   }
 
-  // after PadCart::getProductPrice
+  /**
+   * Add the price of the chosen paid options to the the initial price of the
+   * product. Used when displaying the cart, for the client-side order
+   * summaries, invoices, and to definitely store the final prices in the orders
+   * Act after PadCart::getProductPrice
+   */
   public function customizePriceWithOptions($event) {
     $product = $event->arguments('product');
     $product_id = $product->id;
@@ -212,6 +276,81 @@ class PadOpt extends WireData implements Module {
     $event->return = $price + $options_price;
   }
 
+  /**
+   * Change the admin-side order summary views, by injecting new HTML table
+   * columns describing the options associated by clients to the products durant
+   * their shoppings.
+   * Act after PadProcess::executeViewOrder
+   */
+  public function addOptionsToViewOrder($event) {
+    $id = (int) $this->input->get->id;
+    $order = $event->object->pages->get($id);
+    $page = $event->return;
+
+    preg_match('/<thead>.*<\\/thead>/Us', $page, $thead);
+    preg_match('/<tbody>.*<\\/tbody>/Us', $page, $tbody);
+
+    preg_match_all('/<tr>.*<\\/tr>/Us', $tbody[0], $bodyrows);
+    $bodyrows = $bodyrows[0];
+
+    // The HTML table of the current view should has as many lines as there are
+    // products associated to the order (+ 1 at the end)
+    if($order->pad_products->count == count($bodyrows) - 1) {
+      $headcols = explode('</th>', $thead[0]);
+      $headcols[0] .= '</th><th>' . __("Included Options");
+
+      $thead = implode('</th>', $headcols);
+
+      for($i = 0; $i < count($bodyrows); $i++) {
+        $bodycols = explode('</td>', $bodyrows[$i]);
+        $bodycols[0] .= '</td><td>';
+
+        // The last line corresponds to the total price of the order
+        if($i < count($bodyrows) - 1) {
+          $serialized_options = $order->pad_products[$i]->{$this->field_options_name};
+
+          if(!empty($serialized_options)) {
+            $options = unserialize($serialized_options);
+            $options_list = $this->renderOptionsHtml($options);
+
+            $product_id = $options['product_id'];
+            $json_options = json_encode($options);
+            $url_options = base64_encode($json_options);
+            $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+        
+            $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
+            $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
+
+            $bodycols[0] .= $view_buttons.$options_list;
+          }
+        }
+
+        $bodyrows[$i] = implode('</td>', $bodycols);
+      }
+
+      $tbody = '<tbody>' . implode($bodyrows) . '</tbody>';
+
+      $page = preg_replace('/<thead>.*<\\/thead>/Us', $thead, $page, 1);
+      $page = preg_replace('/<tbody>.*<\\/tbody>/Us', $tbody, $page, 1);
+
+      $event->return = $page;
+
+    } else {
+      $this->error("Cannot show products options");
+    }
+  }
+
+
+  /***********************/
+  /** PRIVATE FUNCTIONS **/
+  /***********************/
+
+  /**
+   * Produce the HTML code corresponding to the options list associated to a
+   * product
+   *
+   * @param 
+   */
   private function renderOptionsHtml($options) {
     $options_list = '<ul class="padopt_included_options">';
 
@@ -249,63 +388,6 @@ class PadOpt extends WireData implements Module {
     $options_list .= '</ul>';
 
     return $options_list;
-  }
-
-
-  // after PadProcess::executeViewOrder
-  public function addOptionsToViewOrder($event) {
-    $id = (int) $this->input->get->id;
-    $order = $event->object->pages->get($id);
-    $page = $event->return;
-
-    preg_match('/<thead>.*<\\/thead>/Us', $page, $thead);
-    preg_match('/<tbody>.*<\\/tbody>/Us', $page, $tbody);
-
-    preg_match_all('/<tr>.*<\\/tr>/Us', $tbody[0], $bodyrows);
-    $bodyrows = $bodyrows[0];
-
-    if($order->pad_products->count == count($bodyrows) - 1) {
-      $headcols = explode('</th>', $thead[0]);
-      $headcols[0] .= '</th><th>' . __("Included Options");
-
-      $thead = implode('</th>', $headcols);
-
-      for($i = 0; $i < count($bodyrows); $i++) {
-        $bodycols = explode('</td>', $bodyrows[$i]);
-        $bodycols[0] .= '</td><td>';
-
-        if($i < count($bodyrows) - 1) {
-          $serialized_options = $order->pad_products[$i]->{$this->field_options_name};
-
-          if(!empty($serialized_options)) {
-            $options = unserialize($serialized_options);
-            $options_list = $this->renderOptionsHtml($options);
-
-            $product_id = $options['product_id'];
-            $json_options = json_encode($options);
-            $url_options = base64_encode($json_options);
-            $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
-        
-            $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
-            $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
-
-            $bodycols[0] .= $view_buttons.$options_list;
-          }
-        }
-
-        $bodyrows[$i] = implode('</td>', $bodycols);
-      }
-
-      $tbody = '<tbody>' . implode($bodyrows) . '</tbody>';
-
-      $page = preg_replace('/<thead>.*<\\/thead>/Us', $thead, $page, 1);
-      $page = preg_replace('/<tbody>.*<\\/tbody>/Us', $tbody, $page, 1);
-
-      $event->return = $page;
-
-    } else {
-      $this->error("Cannot show products options");
-    }
   }
 
   public function registerSubmodule($submodule) {

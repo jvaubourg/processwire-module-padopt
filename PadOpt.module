@@ -25,16 +25,17 @@ class PadOpt extends WireData implements Module {
   // MySQL table name used by PadCart for storing carts
   protected $db_padcart = 'padcart'; 
 
-  // MySQL table colunm added by PadOpt in <db_padcart> to store product options
-  // when they are added to the cart, before ordering
+  // MySQL table colunm name added by PadOpt in <db_padcart> to store product
+  // options when they are added to the cart, before ordering
   protected $db_optcolumn = 'padopt_options';
 
-  // Field added by PadOpt in PadLoper product pages (admin-side) to store
-  // product options, when the cart (MySQL) is transform into an order (PW Page)
+  // Name of the field added by PadOpt in PadLoper product pages (admin-side)
+  // to store product options, when the cart (MySQL) is transform into an order
+  // (PW Page)
   protected $field_options_name = 'padopt_options';
 
-  // Field used in PadOpt product page, to ask the admin to choose a template
-  // id on which the option input fields set will be built
+  // Name of the field used in PadOpt product page, to ask the admin to choose
+  // a template id on which the option input fields set will be built
   protected $field_tpl_name = 'padopt_tpl_id';
 
   // HTML forms for choosing options have to integrate an hidden input field
@@ -304,18 +305,30 @@ class PadOpt extends WireData implements Module {
   }
 
   /**
-   * Add some JS and css in the header of every page of the PadLoper admin
+   * Add some JS and css in the header of every PadOpt product page and page
+   * of the PadLoper admin
    * Act before Page::render
    */
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
+
+    $scripts = '';
+    $styles = '';
+
+    // Only for PadOpt product pages
+    if($this->isPadoptProductPage($page)) {
+      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt.js'></script>";
+      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padopt.css' rel='stylesheet' />";
+    }
     
     // Only for PadLoper admin pages
-    if($page->template->name == 'admin' && $page->name == 'padloper') {
-      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/admin_padloper.js'></script>";
-      $styles = "<link type='text/css' href='{$module_url}/templates/styles/admin_padloper.css' rel='stylesheet' />";
+    elseif($page->template->name == 'admin' && $page->name == 'padloper') {
+      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_admin.js'></script>";
+      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padopt_admin.css' rel='stylesheet' />";
+    }
 
+    if(!empty($styles) || !empty($scripts)) {
       $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }
   }
@@ -650,6 +663,17 @@ class PadOpt extends WireData implements Module {
   }
 
   /**
+    * Return true if the page seems to be a PadOpt product page (ie. a PadLoper
+    * product page but with PadOpt options)
+    *
+    * @param Page $page
+    * @return bool
+    */
+  public function isPadoptProductPage($page) {
+    return $page->template->fields->get($this->field_tpl_name);
+  }
+
+  /**
     * Module installation
     */
   public function install() {
@@ -712,10 +736,6 @@ class PadOpt extends WireData implements Module {
     $this->database->exec($sql);
 
     $this->message("Dropped SQL column {$this->db_optcolumn} in carts");
-  }
-
-  public function getFieldTplName() {
-    return $this->field_tpl_name;
   }
 
   public function getInputPrefix() {

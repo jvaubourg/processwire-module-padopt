@@ -89,7 +89,7 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
     
     // Only on PadOpt product pages
-    if($page->template->fields->get($this->padopt->getFieldTplName())) {
+    if($this->padopt->isPadoptProductPage($page)) {
       $scripts = <<<EOT
         <script>
           const padoptlc_inputprefix = '{$this->padopt->getGeneralPrefix()}{$this->input_prefix}';

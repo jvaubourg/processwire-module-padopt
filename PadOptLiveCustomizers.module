@@ -39,7 +39,7 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   private function setViewportInfos($inputfields) {
     $inputfield_name = $inputfields[0]->name;
 
-    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
+    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
 
     $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
     $this->viewport_width = $viewport_size[0];
@@ -54,7 +54,7 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
     if($page->template->fields->get($this->padopt->getFieldTplName())) {
       $scripts = <<<EOT
         <script>
-          const padoptlc_inputprefix = '{$this->padopt->getGeneralInputPrefix()}{$this->input_prefix}';
+          const padoptlc_inputprefix = '{$this->padopt->getGeneralPrefix()}{$this->input_prefix}';
           const padoptlc_classviewport = '{$this->class_viewport}';
           const padoptlc_classmaindiv = '{$this->class_maindiv}';
           const padoptlc_idprefix = '{$this->id_prefix}';

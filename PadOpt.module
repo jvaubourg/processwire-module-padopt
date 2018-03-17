@@ -1,15 +1,59 @@
 <?php
 
+/* PadOpt for PadLoper
+ * Add custom client options feature to PadLoper (ProcessWire module) 
+ *
+ * Copyright (C) 2018 Julien Vaubourg <julien@vaubourg.com>
+ * Contribute at https://github.com/jvaubourg/processwire-module-padopt
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 class PadOpt extends WireData implements Module {
-  protected $db_padcart = 'padcart';
+
+  // MySQL table name used by PadCart for storing carts
+  protected $db_padcart = 'padcart'; 
+
+  // MySQL table colunm added by PadOpt in <db_padcart> to store product options
+  // when they are added to the cart, before ordering
   protected $db_optcolumn = 'padopt_options';
+
+  // Field added by PadOpt in PadLoper product pages (admin-side) to store
+  // product options, when the cart (MySQL) is transform into an order (PW Page)
   protected $field_options_name = 'padopt_options';
+
+  // Field used in PadOpt product page, to ask the admin to choose a template
+  // id on which the option input fields set will be built
   protected $field_tpl_name = 'padopt_tpl_id';
+
+  // HTML forms for choosing options have to integrate an hidden input field
+  // with this name (value=1)
   protected $input_padopt_enabled = 'padopt';
-  protected $tag_name = 'padopt';
-  protected $general_input_prefix = 'padopt_';
+
+  // General prefix of PadOpt (eg. for field names)
+  protected $general_prefix = 'padopt_';
+
+  // Prefix part used in the name of general fields used to build option forms
   protected $input_prefix = 'input_';
+
+  // Prefix part used in the name of fields used to describe a separator
+  // (ie. title) in option forms
   protected $separator_prefix = 'sep_';
+
+  // Fields and templates created in PW with a name beginning with
+  // <general_prefix> will be automatically associated to this tag name
+  protected $tag_name = 'padopt';
 
   protected $session_id;
   protected $stored_options = array();
@@ -31,8 +75,8 @@ class PadOpt extends WireData implements Module {
 
   public function init() {
     $this->session_id = session_id();
-    $this->input_prefix = "{$this->general_input_prefix}{$this->input_prefix}";
-    $this->separator_prefix = "{$this->general_input_prefix}{$this->separator_prefix}";
+    $this->input_prefix = "{$this->general_prefix}{$this->input_prefix}";
+    $this->separator_prefix = "{$this->general_prefix}{$this->separator_prefix}";
 
     $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
     $this->addHookBefore('ProcessTemplate::executeSave', $this, 'automaticTagging');
@@ -52,34 +96,17 @@ class PadOpt extends WireData implements Module {
 
   /**
    * Automatically add a <tag_name> tag to every new field and template created
-   * with a name beginning by <general_input_prefix>
+   * with a name beginning by <general_prefix>
    * Act before ProcessField::executeSave and ProcessTemplate::executeSave
    */
   public function automaticTagging($event) {
     $post_values = $event->object->input->post;
 
-    if((($post_values['name'] && strpos($post_values['name'], $this->general_input_prefix) === 0)
-        || ($post_values['rename'] && strpos($post_values['rename'], $this->general_input_prefix) === 0))
+    if((($post_values['name'] && strpos($post_values['name'], $this->general_prefix) === 0)
+        || ($post_values['rename'] && strpos($post_values['rename'], $this->general_prefix) === 0))
       && strpos($post_values['tags'], $this->tag_name) === false) {
 
       $post_values['tags'] .= " {$this->tag_name}";
-    }
-  }
-
-  /**
-   * Add some JS and css in the header of every page of the PadLoper admin
-   * Act before Page::render
-   */
-  public function addScriptsAndStyles($event) {
-    $page = $event->object; 
-    $module_url = $this->config->urls->siteModules . basename(__DIR__);
-    
-    // Only for PadLoper admin pages
-    if($page->template->name == 'admin' && $page->name == 'padloper') {
-      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/admin_padloper.js'></script>";
-      $styles = "<link type='text/css' href='{$module_url}/templates/styles/admin_padloper.css' rel='stylesheet' />";
-
-      $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }
   }
 
@@ -123,7 +150,7 @@ class PadOpt extends WireData implements Module {
 
   /**
    * Catch the value of every input field with a name beginning by
-   * <general_input_prefix>, among the values transmitted by a page to PadLoper,
+   * <general_prefix>, among the values transmitted by a page to PadLoper,
    * when an "Add to Cart" button is pushed. These values (describing product
    * options) are temporarily stored in an array, to be used later by
    * addProductOptionsToCart
@@ -152,10 +179,10 @@ class PadOpt extends WireData implements Module {
       $options = &$this->stored_options[$this->session_id][$product_id][$variation_id];
 
       // Input values are stored only when the name begins with
-      // <general_input_prefix>, corresponding to input fields generated
+      // <general_prefix>, corresponding to input fields generated
       // by PadOpt
       foreach($event->object->input->post as $input => $value) {
-        if(strpos($input, $this->general_input_prefix) === 0) {
+        if(strpos($input, $this->general_prefix) === 0) {
 
           // Values composed of multiple values (eg. checkboxes) are concatenated
           // into a single value (eg. 1|2|3)
@@ -274,6 +301,23 @@ class PadOpt extends WireData implements Module {
     $options_price = (float) $this->getCartProductOptionsPrice($options);
 
     $event->return = $price + $options_price;
+  }
+
+  /**
+   * Add some JS and css in the header of every page of the PadLoper admin
+   * Act before Page::render
+   */
+  public function addScriptsAndStyles($event) {
+    $page = $event->object; 
+    $module_url = $this->config->urls->siteModules . basename(__DIR__);
+    
+    // Only for PadLoper admin pages
+    if($page->template->name == 'admin' && $page->name == 'padloper') {
+      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/admin_padloper.js'></script>";
+      $styles = "<link type='text/css' href='{$module_url}/templates/styles/admin_padloper.css' rel='stylesheet' />";
+
+      $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
+    }
   }
 
   /**
@@ -479,7 +523,7 @@ class PadOpt extends WireData implements Module {
    */
   public function registerSubmodule($submodule) {
     $input_prefix = $submodule->getInputPrefix();
-    $this->registered_submodules["{$this->general_input_prefix}{$input_prefix}"] = $submodule;
+    $this->registered_submodules["{$this->general_prefix}{$input_prefix}"] = $submodule;
   }
 
   /**
@@ -508,7 +552,7 @@ class PadOpt extends WireData implements Module {
     foreach($inputfields as $inputfield) {
 
       // Extracts the prefix (format <general-input-prefix>_<type-prefix>_)
-      preg_match("/^{$this->general_input_prefix}[^_]+_/", $inputfield->name, $prefix);
+      preg_match("/^{$this->general_prefix}[^_]+_/", $inputfield->name, $prefix);
 
       if(!empty($prefix)) {
         $prefix = $prefix[0];
@@ -579,6 +623,12 @@ class PadOpt extends WireData implements Module {
     return $render;
   }
 
+  /**
+   * Return information about the options of a product currently available in the cart
+   *
+   * @param Page $product
+   * @return array 0=Options URL, 1=HTML options list, 2=Total options price
+   */
   public function getCartProductOptionsInfos($product) {
     $options = $this->getCartProductOptions($product->product_id, $product->variation_id);
     $view_link = '';
@@ -599,12 +649,20 @@ class PadOpt extends WireData implements Module {
     return $infos;
   }
 
+  /**
+    * Module installation
+    */
   public function install() {
+
+    // Add a column for product options to the table used for storing carts, before ordering
+    // Options are PHP-serialized
     $sql = "ALTER TABLE {$this->db_padcart} ADD {$this->db_optcolumn} TEXT DEFAULT NULL";
     $this->database->exec($sql);
 
     $this->message("Created new SQL column {$this->db_optcolumn} in carts");
 
+    // Field used in PadOpt product templates, to save the id of the template
+    // with which the option input fields set will be built
     $field_tpl = new Field();
     $field_tpl->type = $this->modules->get('FieldtypeInteger');
     $field_tpl->name = $this->field_tpl_name;
@@ -614,6 +672,8 @@ class PadOpt extends WireData implements Module {
 
     $this->message("Created new field {$field_tpl}");
 
+    // Field used to store product options, when a cart (MySQL) is transform
+    // into an order (PW Page)
     $field_options = new Field();
     $field_options->type = $this->modules->get('FieldtypeTextarea');
     $field_options->name = $this->field_options_name;
@@ -630,6 +690,9 @@ class PadOpt extends WireData implements Module {
     $this->message("Added field {$field_options} to the padorder_product template");
   }
 
+  /**
+    * Module uninstallation
+    */
   public function uninstall() {
     $padorder_product = $this->templates->get('padorder_product');
     $field_options = $this->fields->get($this->field_options_name);
@@ -659,7 +722,7 @@ class PadOpt extends WireData implements Module {
     return $this->input_prefix;
   }
 
-  public function getGeneralInputPrefix() {
-    return $this->general_input_prefix;
+  public function getGeneralPrefix() {
+    return $this->general_prefix;
   }
 }

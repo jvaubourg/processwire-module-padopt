@@ -96,7 +96,7 @@ class PadOpt extends WireData implements Module {
 
   /**
    * Automatically add a <tag_name> tag to every new field and template created
-   * with a name beginning by <general_prefix>
+   * with a name beginning by <general_prefix>. Also works after name updating
    * Act before ProcessField::executeSave and ProcessTemplate::executeSave
    */
   public function automaticTagging($event) {
@@ -551,7 +551,7 @@ class PadOpt extends WireData implements Module {
     // Step 1: Group together all fields that follow each other with an identical prefix in their name
     foreach($inputfields as $inputfield) {
 
-      // Extracts the prefix (format <general-input-prefix>_<type-prefix>_)
+      // Extracts the prefix (format <general-prefix>_<type-prefix>_)
       preg_match("/^{$this->general_prefix}[^_]+_/", $inputfield->name, $prefix);
 
       if(!empty($prefix)) {

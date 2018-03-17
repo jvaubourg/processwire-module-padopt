@@ -1,18 +1,54 @@
 <?php
+
+/* PadOptLiveCustomizers (PadOpt submodule)
+ * Add live customization of products feature to PadOpt (ProcessWire module) 
+ *
+ * Copyright (C) 2018 Julien Vaubourg <julien@vaubourg.com>
+ * Contribute at https://github.com/jvaubourg/processwire-module-padopt
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 include_once(__DIR__ . DIRECTORY_SEPARATOR . 'PadOptSubmodule.interface');
 
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
-
 class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module {
+
+  // Prefix part used in the name of fields used to describe a live customizer
   protected $input_prefix = 'live_';
+
+  // Public path for the directory containing the images to use in the viewport
+  // Each live customizer will own its own directory inside (see JS)
   protected $img_path = 'files/padopt_livecustomizers/';
+
+  // Image name of the default image to use in live customizer directories
   protected $img_default = 'default.png';
+
+  // CSS class name for the div around the HTML live customizer
+  // (viewport + form)
   protected $class_maindiv = 'padopt-livecustomizer';
+
+  // CSS class name for the viewport
   protected $class_viewport = 'padopt-livecustomizer-viewport';
+
+  // Prefix of the input field ids
   protected $id_prefix = 'padoptlc-';
+
+  // Viewport infos
   protected $viewport_width;
   protected $viewport_height;
+
+  // Link to the PadOpt module
   protected $padopt;
 
   public static function getModuleInfo() {
@@ -30,27 +66,29 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   }
 
   public function init() {
+
+    // PadOpt submodule registering
     $this->padopt = $this->modules->get('PadOpt');
     $this->padopt->registerSubmodule($this);
 
     $this->addHookAfter('Page::render', $this, 'addScriptsAndStyles');
   }
 
-  private function setViewportInfos($inputfields) {
-    $inputfield_name = $inputfields[0]->name;
 
-    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
+  /***********/
+  /** HOOKS **/
+  /***********/
 
-    $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
-    $this->viewport_width = $viewport_size[0];
-    $this->viewport_height = $viewport_size[1];
-  }
-
-  // after Page::render
+  /**
+   * Add some JS and css in the header of every page containing an HTML form
+   * for choosing product options
+   * Act before Page::render
+   */
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
     
+    // Only on PadOpt product pages
     if($page->template->fields->get($this->padopt->getFieldTplName())) {
       $scripts = <<<EOT
         <script>
@@ -79,15 +117,49 @@ EOT;
     }
   }
 
-  public function getInputPrefix() {
-    return $this->input_prefix;
+
+  /***********************/
+  /** PRIVATE FUNCTIONS **/
+  /***********************/
+
+  /**
+   * Set class parameters relating to the viewport (ie. the HTML area where an
+   * image of the product will be progressively updated, depending on the chosen options)
+   *
+   * @param array $inputfields Group of input fields provided by PadOpt
+   */
+  private function setViewportInfos($inputfields) {
+    $inputfield_name = $inputfields[0]->name;
+
+    // The name of the live customizer is deduced from the prefix used for its
+    // fields. PadOpt ensured that all fields use the same prefix
+    // (format <general-prefix>_<type-prefix>_<live-customizer-name>_)
+    $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
+
+    // All the images contained in the live customizer directory are supposed to use the same odds
+    $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
+    $this->viewport_width = $viewport_size[0];
+    $this->viewport_height = $viewport_size[1];
   }
 
+
+  /**********************/
+  /** PUBLIC FUNCTIONS **/
+  /**********************/
+
+  /**
+   * Return the HTML code of the input fields to add to the PadLoper form, in
+   * which there is the "Add to cart" button. This function is used by
+   * renderFieldset in PadOpt
+   */
   public function render($inputfields) {
     $form = $this->modules->get('InputfieldForm');
 
     $this->setViewportInfos($inputfields);
 
+    // The viewport is composed of as many layers as there are fields
+    // The background image of each layer will be updated depending on the
+    // client choice for the related option
     $render = "<div class='{$this->class_maindiv}'>";
     $render .= "<div class='{$this->class_viewport}'>";
     
@@ -105,5 +177,9 @@ EOT;
     $render .= '</div>';
 
     return $render;
+  }
+
+  public function getInputPrefix() {
+    return $this->input_prefix;
   }
 }

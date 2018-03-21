@@ -406,11 +406,13 @@ EOT;
             $url_options = base64_encode($json_options);
             $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
 
-            $price_info = ($options_price > 0 ? $options_price : __("Free")) . "<br />";
-            $view_buttons = "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a><br />';
-            $view_buttons .= "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a>';
+            $render = "<ul class='{$this->general_prefix}included_options'>";
+            $render .= '<li>' . ($options_price > 0 ? $options_price : __("Free")) . '</li>';
+            $render .= "<li><a href='javascript:;' class='{$this->general_prefix}show_options'>" . __("Show list") . "</a>{$options_list}</li>";
+            $render .= "<li><a href='{$view_url}' target='_blank'>" . __("View online") . '</a></li>';
+            $render .= '</ul>';
 
-            $bodycols[0] .= $price_info.$view_buttons.$options_list;
+            $bodycols[0] .= $render;
           }
         }
 
@@ -441,7 +443,7 @@ EOT;
    * @return string HTML code
    */
   private function renderOptionsHtml($options) {
-    $options_list = '<ul class="padopt_included_options">';
+    $options_list = "<ul class='{$this->general_prefix}options_list'>";
 
     foreach($options as $name => $value) {
       if($name != 'product_id') {

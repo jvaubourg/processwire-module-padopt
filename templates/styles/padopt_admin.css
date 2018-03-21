@@ -1,16 +1,22 @@
-.padopt_included_options {
+.padopt_included_options, .padopt_included_options > li {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+.padopt_options_list {
   display: none;
 }
 
-.padopt_included_options, .padopt_included_options ul {
+.padopt_options_list, .padopt_options_list ul {
   margin-left: 1em;
 }
 
-.padopt_included_options li {
+.padopt_options_list li {
   padding: 0;
   margin: 0;
 }
 
-.padopt_included_options ul li::before {
+.padopt_options_list ul li::before {
   content: '\2713';
 }

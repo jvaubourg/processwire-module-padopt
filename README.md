@@ -1,7 +1,5 @@
 # PadOpt
 
-## Description
-
 PadOpt is a free module for ProcessWire (PW), designed to improve e-shops based on PadLoper. Once PadOpt is installed along PadLoper, it is easy to define dozen of options (free or not) with dozen of choices, for every product.
 
 PadLoper is a commercial module for (PW). PadLoper enables to transform any PW-based website to an e-shop, quickly and easily. Every PW page can be transform into a product, with a price defined in a PW field. If the product presented in the page is available with differents attributes (eg. colors, sizes), each possible combination has to be defined as a variation of the page in PW. But with several choices to do, with several possibilities for each one, the number of variations grows exponentially. For this reason, it is not really possible to natively make a shop with high customizable products with PadLoper. PadOpt fixes this issue.
@@ -65,15 +63,52 @@ Templates to update:
 
 PadOpt supports a submodule system, to easily add functionnalities.
 
-To create a new submodule, just create a module with a class inheriting *PadOptSubmodule* and register yourself with this line in *init()*:
+To create a new submodule, just create a new PW module with the main class inheriting *PadOptSubmodule*, then register yourself by adding this line in the *init* function:
 
 ```
 $this->modules->get('PadOpt')->registerSubmodule($this);
 ```
 
+Install submodules as any other PW module (require PadOpt installed).
+
 ### Live Customizers Submodule
 
+This submodule enables to add live customization to the product: the image of the product is updated as the customer chooses his/her options, acting as a preview.
 
+Let's take another example of shirt selling, with a live preview of the colors:
+
+1. Create a new template named *padopt_shirts*
+2. Create 2 new fields with a list of colors:
+  - *padopt_live_myshirt_bodyColor* (type *Select Options*)
+  - *padopt_live_myshirt_sleeveColor* (type *Select Options*)
+3. Add these 2 new fields to the new template
+4. Create a new page associated to a product template and select *padopt_shirts* when asked
+
+Let's assume your color lists are:
+
+```
+1=red
+2=blue
+3=pink
+```
+
+Create the new directory *site/files/padopt_livecustomizers/myshirt/* and add these files inside:
+
+```
+default.png
+bodyColor_1.png
+bodyColor_2.png
+bodyColor_3.png
+sleeveColor_1.png
+sleeveColor_2.png
+sleeveColor_3.png
+```
+
+- **default.png**: picture of the shirt with no colors;
+- **bodyColor_x.png**: picture of the body part of the shirt with the color corresponding to the choice *x* and without the sleeve part (transparent);
+- **sleeveColor_x.png**: picture of the sleeve parts of the shirt with the color corresponding to the choice *x* and without the body part (transparent);
+
+Go on your product page: the preview is here and shows *default.png* by default. One of the *bodyColor* images will be stacked over by changing the value of the corresponding field, and one of the *sleeveColor* will also be stacked by changing the other one. The shirt in the preview is now full colored;
 
 ## How it Works Behind the Scenes
 
@@ -85,3 +120,7 @@ PadOpt adds two main things to the PadLoper stuff:
 The db column stores the options associated to the corresponding product in the cart, in PHP's serialization format. The PW field does the same thing, but when the cart is tranform into an order.
 
 All other changes are done on the fly with hooks.
+
+## License
+
+AGPL v3.0

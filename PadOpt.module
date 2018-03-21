@@ -401,14 +401,16 @@ EOT;
             $options_list = $this->renderOptionsHtml($options);
 
             $product_id = $options['product_id'];
+            $options_price = $this->getCartProductOptionsPrice($options);
             $json_options = json_encode($options);
             $url_options = base64_encode($json_options);
             $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
-        
-            $view_buttons = "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a><br />';
-            $view_buttons .= "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a>';
 
-            $bodycols[0] .= $view_buttons.$options_list;
+            $price_info = ($options_price > 0 ? $options_price : __("Free")) . "<br />";
+            $view_buttons = "<a href='javascript:;' class='padopt_show_options'>" . __("Show list") . '</a><br />';
+            $view_buttons .= "<a href='{$view_url}' target='_blank'>" . __("View online") . '</a>';
+
+            $bodycols[0] .= $price_info.$view_buttons.$options_list;
           }
         }
 

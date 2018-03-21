@@ -39,6 +39,8 @@ Respect the prefixes (*padopt_* and *padopt_input_*) in the names. To define the
 
 You can now make an order: a list of the selected options is available directly in your *Padloper Orders* section and the final prices include the price of the options.
 
+*Bonus:* Fields named *padopt_sep_xxx* (type text) can be added between the other fields, to make separators with titles.
+
 ## How to Better Integrate PadOpt
 
 With PadLoper, you are encouraged to customize the templates by copying them from *site/modules/PadLoper/templates/* to *site/templates/padloper/*.

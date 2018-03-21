@@ -1,12 +1,12 @@
-= PadOpt
+# PadOpt
 
-== Description
+## Description
 
 PadOpt is a free module for ProcessWire (PW), designed to improve e-shops based on PadLoper. Once PadOpt is installed along PadLoper, it is easy to define dozen of options (free or not) with dozen of choices, for every product.
 
 PadLoper is a commercial module for (PW). PadLoper enables to transform any PW-based website to an e-shop, quickly and easily. Every PW page can be transform into a product, with a price defined in a PW field. If the product presented in the page is available with differents attributes (eg. colors, sizes), each possible combination has to be defined as a variation of the page in PW. But with several choices to do, with several possibilities for each one, the number of variations grows exponentially. For this reason, it is not really possible to natively make a shop with high customizable products with PadLoper. PadOpt fixes this issue.
 
-== Installation
+## Installation
 
 Requirements:
 
@@ -19,7 +19,7 @@ Installation:
 2. Create or modify a *product template* for PadLoper (see settings of PadCart), and add the *padopt_tpl_id* field
 3. You now can create new high customizable products, or update already existing ones to complete them with some options
 
-== How to Define Options of a Product
+## How to Define Options of a Product
 
 Let's take the classical example of the shirts, with these options:
 
@@ -41,7 +41,7 @@ Respect the prefixes (*padopt_* and *padopt_input_*) in the names. To define the
 
 You can now make an order: a list of the selected options is available directly in your *Padloper Orders* section and the final prices include the price of the options.
 
-== How to Better Integrate PadOpt
+## How to Better Integrate PadOpt
 
 With PadLoper, you are encouraged to customize the templates by copying them from *site/modules/PadLoper/templates/* to *site/templates/padloper/*.
 
@@ -61,7 +61,7 @@ Templates to update:
 - To show options in carts, update *edit-cart.php*.
 - To show options in order confirmations and invoices, update *order-products-table.php*.
 
-== PadOpt Submodules
+## PadOpt Submodules
 
 PadOpt supports a submodule system, to easily add functionnalities.
 
@@ -71,11 +71,11 @@ To create a new submodule, just create a module with a class inheriting *PadOptS
 $this->modules->get('PadOpt')->registerSubmodule($this);
 ```
 
-=== Live Customizers Submodule ===
+### Live Customizers Submodule
 
 
 
-== How it Works Behind the Scenes
+## How it Works Behind the Scenes
 
 PadOpt adds two main things to the PadLoper stuff:
 

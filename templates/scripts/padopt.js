@@ -28,6 +28,15 @@ function start() {
 }
 
 /**
+ * Error logging
+ *
+ * @param string $msg
+ */
+function logError(msg) {
+  console.log(padopt_logname + ': ' + msg);
+}
+
+/**
  * The review mode changes the default value of the input fields of the page
  * and disables the input fields (ie. the client cannot changes their value
  * anymore). The default values are read from the JSON passed to the page after
@@ -48,35 +57,64 @@ function reviewMode() {
     
     if(options) {
       for(var key in options) {
+        if(key != 'product_id') {
 
-        // Step 1: Store values and keys in arrays
-        var values = [];
-        var ids = [];
+          // Step 1: Store values and keys in arrays
+          var values = [];
+          var ids = [];
   
-        // Some values are composed of severeal values (eg. checkboxes) separated
-        // by a pipe (eg. 1|2|3)
-        if(options[key].toString().indexOf('|') > 0) {
-          values = options[key].split('|');
+          // Some values are composed of multiple values (eg. checkboxes) separated
+          // by a pipe (eg. 1|2|3)
+          if(options[key].toString().indexOf('|') > 0) {
+            var subvalues = options[key].split('|');
   
-          for(var i = 0; i < values.length; i++) {
+            for(var i = 0; i < subvalues.length; i++) {
+              if(/^[0-9]$/.test(subvalues[i])) {
+                // When there are several inputs with the same name (and so several
+                // values to select), the input ids integrate the value
+                var id = input_id_prefix + key + '_' + subvalues[i];
 
-            // When there are several inputs with the same name (and so several
-            // values to select), the input ids integrate the value
-            ids.push(key + '_' + values[i]);
+                if(document.getElementById(id)) {
+                  ids.push(id);
+                  values.push(1);
+
+                } else {
+                  logError("Input field " + id + " not found");
+                }
+
+              } else {
+                logError("Input field " + id + " subvalues must be numbers: " + subvalues[i]);
+              }
+            }
+  
+          } else {
+            var id = input_id_prefix + key;
+            var value = options[key];
+
+            if(document.getElementById(id)) {
+              ids.push(id);
+              values.push(value);
+
+            } else if(/^[0-9]$/.test(value)) {
+              var alt_id = id + '_' + value;
+
+              if(document.getElementById(alt_id)) {
+                ids.push(alt_id);
+                values.push(value);
+
+              } else {
+                logError("Input field " + id + " (or " + alt_id + ") not found");
+              }
+            } else {
+              logError("Input field " + id + " not found");
+            }
           }
   
-        } else {
-          values.push(options[key]);
-          ids.push(key);
-        }
+          // Step 2: Parse all ids and update values of the corresponding
+          // input fields
+          for(var i = 0; i < ids.length; i++) {
+            var input = document.getElementById(ids[i]);
   
-        // Step 2: Parse all ids and update values of the corresponding
-        // input fields
-        for(var i = 0; i < ids.length; i++) {
-          var id = input_id_prefix + ids[i];
-          var input = document.getElementById(id);
-  
-          if(input) {
             if(input.type == 'checkbox') {
               input.checked = true;
   
@@ -95,7 +133,7 @@ function reviewMode() {
       // Disable all the input fields of the PadLoper form
       if(form) {
         form = form[0];
-        var input_types = [ 'input', 'select' ];
+        var input_types = [ 'input', 'textarea', 'select' ];
 
         for(var i = 0; i < input_types.length; i++) {
           var inputs = form.getElementsByTagName(input_types[i]);

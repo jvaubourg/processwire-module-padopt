@@ -60,7 +60,7 @@ class PadOpt extends WireData implements Module {
   // <general_prefix> will be automatically associated to this tag name
   protected $tag_name = 'padopt';
 
-  // Errors will be logged under this category in PW
+  // Errors will be logged under this category in PW and in JS console
   protected $log_name = 'padopt';
 
   protected $session_id;
@@ -196,11 +196,12 @@ foreach($this->session as $name => $value)
           if(strpos($name, $this->general_prefix) === 0) {
             $tpl_page = new Page();
             $tpl_page->template = $product_page->get($this->field_tpl_name);
-  
+
             // Is the input field corresponding to a PW field for this PadOpt product page
             if($tpl_page->fields->get($name)) {
+
               // Pipes are special chars for us
-              $value = str_replace($value, '|', '');
+              $value = str_replace('|', '', $value);
     
               // Values composed of multiple values (eg. checkboxes) are concatenated
               // into a single value (eg. 1|2|3)
@@ -295,14 +296,11 @@ foreach($this->session as $name => $value)
           $variation_id = $cart_product->variation_id;
 
           // Get the pad_product page created for this product in the hooked function
-          $order_product = $event->object->pad_products->find("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
+          $order_product = $event->object->pad_products->get("pad_product_id={$product_id}, pad_variation_id={$variation_id}");
 
-          if($order_product->count == 1) {
-            $order_product[0]->{$this->field_options_name} = $cart_product->{$this->db_optcolumn};
-            $order_product[0]->save();
-
-          } elseif($order_product->count > 1) {
-            $this->logError("Too much products corresponding to {$product_id}/{$variation_id} in the order");
+          if(!($order_product instanceof NullPage)) {
+            $order_product->{$this->field_options_name} = $cart_product->{$this->db_optcolumn};
+            $order_product->save();
 
           } else {
             $this->logError("No product corresponding to {$product_id}/{$variation_id} in the order");
@@ -340,19 +338,24 @@ foreach($this->session as $name => $value)
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
 
-    $scripts = '';
+    $scripts = <<<EOT
+      <script>
+        const padopt_logname = '{$this->log_name}';
+      </script>
+EOT;
+
     $styles = '';
 
     // Only for PadOpt product pages
     if($this->isPadoptProductPage($page)) {
-      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt.js'></script>";
-      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padopt.css' rel='stylesheet' />";
+      $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt.js'></script>";
+      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt.css' rel='stylesheet' />";
     }
     
     // Only for PadLoper admin pages
     elseif($page->template->name == 'admin' && $page->name == 'padloper') {
-      $scripts = "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_admin.js'></script>";
-      $styles = "<link type='text/css' href='{$module_url}/templates/styles/padopt_admin.css' rel='stylesheet' />";
+      $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_admin.js'></script>";
+      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt_admin.css' rel='stylesheet' />";
     }
 
     if(!empty($styles) || !empty($scripts)) {
@@ -450,7 +453,7 @@ foreach($this->session as $name => $value)
           if($value != '') {
 
             // Field with predefined options (eg. select, checkboxes, radios)
-            if($field->data['inputfieldClass'] == 'InputfieldSelect') {
+            if($field->type instanceof FieldtypeOptions) {
               $field_options = $field->type->getOptions($this->fields->get($name));
   
               // Values composed of multiple values (eg. checkboxes)
@@ -459,12 +462,17 @@ foreach($this->session as $name => $value)
                 $field_txt = '<ul>';
     
                 foreach($subvalues as $subvalue) {
-                  $field_option = $field_options->get($subvalue);
+                  if(is_integer($subvalue)) {
+                    $field_option = $field_options->get($subvalue);
 
-                  if(empty(!$field_option)) {
-                    $field_txt .= "<li><em>{$field_option->data['title']}</em></li>";
+                    if(empty(!$field_option)) {
+                      $field_txt .= "<li><em>{$field_option->data['title']}</em></li>";
+                    } else {
+                      $this->logError("Option value {$subvalue} of the field {$name} does not exist");
+                    }
+
                   } else {
-                    $this->logError("Value {$subvalue} of the field {$name} does not exist");
+                    $this->logError("Subvalue {$subvalue} of the field {$name} must be a number");
                   }
                 }
     
@@ -477,7 +485,7 @@ foreach($this->session as $name => $value)
                 if(empty(!$field_option)) {
                   $field_txt = "<em>{$field_option->data['title']}</em>";
                 } else {
-                  $this->logError("Value {$value} of the field {$name} does not exist");
+                  $this->logError("Option value {$value} of the field {$name} does not exist");
                 }
               }
 
@@ -578,7 +586,7 @@ foreach($this->session as $name => $value)
           if(!empty($field)) {
   
             // Field with predefined options (eg. select, checkboxes, radios)
-            if($field->data['inputfieldClass'] == 'InputfieldSelect') {
+            if($field->type instanceof FieldtypeOptions) {
               $field_options = $field->type->getOptions($this->fields->get($name));
         
               if(!empty($field_options)) {
@@ -588,12 +596,17 @@ foreach($this->session as $name => $value)
                   $subvalues = explode('|', $value);
           
                   foreach($subvalues as $subvalue) {
-                    $field_option = $field_options->get($subvalue);
+                    if(is_integer($subvalue)) {
+                      $field_option = $field_options->get($subvalue);
   
-                    if(empty(!$field_option)) {
-                      $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
+                      if(empty(!$field_option)) {
+                        $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
+                      } else {
+                        $this->logError("Option value {$subvalue} of the field {$name} does not exist");
+                      }
+
                     } else {
-                      $this->logError("Value {$subvalue} of the field {$name} does not exist");
+                      $this->logError("Subvalue {$subvalue} of the field {$name} must be a number");
                     }
                   }
 
@@ -604,7 +617,7 @@ foreach($this->session as $name => $value)
                   if(empty(!$field_option)) {
                     $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
                   } else {
-                    $this->logError("Value {$value} of the field {$name} does not exist");
+                    $this->logError("Option value {$value} of the field {$name} does not exist");
                   }
                 }
               } else {

@@ -25,7 +25,6 @@ window.addEventListener('load', start, false);
  */
 function start() {
   locateLiveCustomizers();
-  reviewMode();
 }
 
 /*
@@ -41,6 +40,13 @@ function locateLiveCustomizers() {
     for(var j = 0; j < modifiers.length; j++) {
       if(modifiers[j].getAttribute('name').startsWith(padoptlc_inputprefix)) {
         modifiers[j].addEventListener('change', changeModifier, false);
+
+        // Preview mode enabled
+        if(modifiers[j].disabled) {
+          modifiers[j].disabled = false;
+          modifiers[j].dispatchEvent(new Event('change'));
+          modifiers[j].disabled = true;
+        }
       }
     }
   }
@@ -65,87 +71,4 @@ function changeModifier() {
   // The background image to show should have a name with a
   // <option-name>_<value-chosen>.png format
   viewport_layer.style.backgroundImage = 'url(' + padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
-}
-
-/**
- * The review mode changes the default value of the input fields of the page
- * and disables the input fields (ie. the client cannot changes their value
- * anymore). The default values are read from the JSON passed to the page after
- * the hash in the URL
- */
-function reviewMode() {
-
-  // Prefix used by PW when transforming fields into inputfields
-  const input_id_prefix = 'Inputfield_';
-
-  // Get the default values from the URL
-  var hash = window.location.hash.substr(1);
-
-  if(hash) {
-
-    // Default values are given as a JSON encoded in base64
-    var options = JSON.parse(atob(hash));
-    
-    if(options) {
-      for(var key in options) {
-
-        // Step 1: Store values and keys in arrays
-        var values = [];
-        var ids = [];
-  
-        // Some values are composed of severeal values (eg. checkboxes) separated
-        // by a pipe (eg. 1|2|3)
-        if(options[key].toString().indexOf('|') > 0) {
-          values = options[key].split('|');
-  
-          for(var i = 0; i < values.length; i++) {
-
-            // When there are several inputs with the same name (and so several
-            // values to select), the input ids integrate the value
-            ids.push(key + '_' + values[i]);
-          }
-  
-        } else {
-          values.push(options[key]);
-          ids.push(key);
-        }
-  
-        // Step 2: Parse all ids and update values of the corresponding
-        // input fields
-        for(var i = 0; i < ids.length; i++) {
-          var id = input_id_prefix + ids[i];
-          var input = document.getElementById(id);
-  
-          if(input) {
-            if(input.type == 'checkbox') {
-              input.checked = true;
-  
-            } else {
-              input.value = values[i];
-            }
-  
-            // Ask the input fields to trigger their 'change' handlers
-            input.dispatchEvent(new Event('change'));
-          }
-        }
-      }
-
-      var form = document.getElementsByClassName('padloper-cart-add-product');
-
-      // Disable all the input fields of the PadLoper form
-      if(form) {
-        form = form[0];
-        var input_types = [ 'input', 'select' ];
-
-        for(var i = 0; i < input_types.length; i++) {
-          var inputs = form.getElementsByTagName(input_types[i]);
-      
-          for(var j = 0; j < inputs.length; j++) {
-            inputs[j].readonly = true;
-            inputs[j].disabled = true;
-          }
-        }
-      }
-    }
-  }
 }

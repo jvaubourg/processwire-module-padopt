@@ -36,13 +36,13 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
 
   // CSS class name for the div around the HTML live customizer
   // (viewport + form)
-  protected $class_maindiv = 'padopt-livecustomizer';
+  protected $class_maindiv = 'padopt_livecustomizer';
 
   // CSS class name for the viewport
-  protected $class_viewport = 'padopt-livecustomizer-viewport';
+  protected $class_viewport = 'padopt_livecustomizer_viewport';
 
   // Prefix of the input field ids
-  protected $id_prefix = 'padoptlc-';
+  protected $id_prefix = 'padoptlc_';
 
   // Viewport infos
   protected $viewport_width;
@@ -52,7 +52,7 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   protected $padopt;
 
   // Log lines prefix
-  protected $log_prefix = 'LiveCustomizers:';
+  protected $log_prefix = 'LiveCustomizers: ';
 
   public static function getModuleInfo() {
     return array(
@@ -165,7 +165,7 @@ EOT;
    */
   private function logError($msg) {
     $this->error($msg);
-    $this->log->save($padopt->getLogName(), "{$this->log_prefix} {$msg}");
+    $this->log->save($padopt->getLogName(), "{$this->log_prefix}{$msg}");
   }
 
 

@@ -39,7 +39,7 @@ Respect the prefixes (*padopt_* and *padopt_input_*) in the names. To define the
 
 You can now make an order: a list of the selected options is available directly in your *Padloper Orders* section and the final prices include the price of the options.
 
-*Bonus:* Fields named *padopt_sep_xxx* (type text) can be added between the other fields, to make separators with titles.
+**Bonus:** Fields named *padopt_sep_xxx* (type *text*) can be added between the other fields, to make separators with titles.
 
 ## How to Better Integrate PadOpt
 
@@ -110,7 +110,7 @@ sleeveColor_3.png
 - **bodyColor_x.png**: picture of the body part of the shirt with the color corresponding to the choice *x* and without the sleeve part (transparent);
 - **sleeveColor_x.png**: picture of the sleeve parts of the shirt with the color corresponding to the choice *x* and without the body part (transparent);
 
-Go on your product page: the preview is here and shows *default.png* by default. One of the *bodyColor* images will be stacked over by changing the value of the corresponding field, and one of the *sleeveColor* will also be stacked by changing the other one. The shirt in the preview is now full colored;
+Go on your product page: the preview is here and shows *default.png* by default. One of the *bodyColor* images will be stacked over by changing the value of the corresponding field, and one of the *sleeveColor* will also be stacked by changing the other one. The shirt in the preview is now full colored.
 
 ## How it Works Behind the Scenes
 
@@ -122,6 +122,13 @@ PadOpt adds two main things to the PadLoper stuff:
 The db column stores the options associated to the corresponding product in the cart, in PHP's serialization format. The PW field does the same thing, but when the cart is tranform into an order.
 
 All other changes are done on the fly with hooks.
+
+## To Do
+
+- manage required fields;
+- add an options edit link in carts;
+- add JS live updating of the product price when choosing options;
+- create a submodule for file uploading;
 
 ## License
 

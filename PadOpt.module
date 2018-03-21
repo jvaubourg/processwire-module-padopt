@@ -20,6 +20,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 class PadOpt extends WireData implements Module {
 
   // MySQL table name used by PadCart for storing carts
@@ -56,6 +60,9 @@ class PadOpt extends WireData implements Module {
   // <general_prefix> will be automatically associated to this tag name
   protected $tag_name = 'padopt';
 
+  // Errors will be logged under this category in PW
+  protected $log_name = 'padopt';
+
   protected $session_id;
   protected $stored_options = array();
   protected $registered_submodules = array();
@@ -75,9 +82,9 @@ class PadOpt extends WireData implements Module {
   }
 
   public function init() {
+
+foreach($this->session as $name => $value) 
     $this->session_id = session_id();
-    $this->input_prefix = "{$this->general_prefix}{$this->input_prefix}";
-    $this->separator_prefix = "{$this->general_prefix}{$this->separator_prefix}";
 
     $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
     $this->addHookBefore('ProcessTemplate::executeSave', $this, 'automaticTagging');
@@ -161,38 +168,58 @@ class PadOpt extends WireData implements Module {
     $product_id = (int) $event->arguments('id');
     $variation_id = (int) $event->arguments('variation_id');
 
-    // Only for pages containing an input field named <input_padopt_enabled>
-    $is_padopt_page = ($event->object->input->post($this->input_padopt_enabled) == 1);
+    if(!empty($product_id) && !empty($variation_id)) {
+      $product_page = $event->object->pages->get($product_id);
+  
+      // Only for PadOpt product pages containing an input field named <input_padopt_enabled>
+      // (have one condition respected but not the other one should neved happen)
+      if($this->isPadoptProductPage($product_page) && ($event->object->input->post($this->input_padopt_enabled) == 1)) {
 
-    if($is_padopt_page && !empty($product_id) && !empty($variation_id)) {
-      if(!array_key_exists($this->session_id, $this->stored_options)) {
-        $this->stored_options[$this->session_id] = array();
-      }
-
-      if(!array_key_exists($product_id, $this->stored_options[$this->session_id])) {
-        $this->stored_options[$this->session_id][$product_id] = array();
-      }
-
-      if(!array_key_exists($variation_id, $this->stored_options[$this->session_id][$product_id])) {
-        $this->stored_options[$this->session_id][$product_id][$variation_id] = array();
-      }
-
-      $options = &$this->stored_options[$this->session_id][$product_id][$variation_id];
-
-      // Input values are stored only when the name begins with
-      // <general_prefix>, corresponding to input fields generated
-      // by PadOpt
-      foreach($event->object->input->post as $input => $value) {
-        if(strpos($input, $this->general_prefix) === 0) {
-
-          // Values composed of multiple values (eg. checkboxes) are concatenated
-          // into a single value (eg. 1|2|3)
-	  if(is_array($value)) {
-            $value = implode('|', $value);
+        if(!array_key_exists($this->session_id, $this->stored_options)) {
+          $this->stored_options[$this->session_id] = array();
+        }
+  
+        if(!array_key_exists($product_id, $this->stored_options[$this->session_id])) {
+          $this->stored_options[$this->session_id][$product_id] = array();
+        }
+  
+        if(!array_key_exists($variation_id, $this->stored_options[$this->session_id][$product_id])) {
+          $this->stored_options[$this->session_id][$product_id][$variation_id] = array();
+        }
+  
+        $options = &$this->stored_options[$this->session_id][$product_id][$variation_id];
+  
+        // Input values are stored only when the name begins with
+        // <general_prefix>, corresponding to input fields generated
+        // by PadOpt
+        foreach($event->object->input->post as $name => $value) {
+          if(strpos($name, $this->general_prefix) === 0) {
+            $tpl_page = new Page();
+            $tpl_page->template = $product_page->get($this->field_tpl_name);
+  
+            // Is the input field corresponding to a PW field for this PadOpt product page
+            if($tpl_page->fields->get($name)) {
+              // Pipes are special chars for us
+              $value = str_replace($value, '|', '');
+    
+              // Values composed of multiple values (eg. checkboxes) are concatenated
+              // into a single value (eg. 1|2|3)
+              if(is_array($value)) {
+                $value = implode('|', $value);
+              }
+    
+              // sanitizer->text() allows 255 chars max and avoid db over filling
+              if(strlen($value) > 0) {
+                $value = substr($value, 0, 255);
+    
+                if(substr($value, -1) == '|') {
+                  $value = substr($value, 0, 254);
+                }
+              }
+    
+              $options[$this->sanitizer->fieldName($name)] = $this->sanitizer->text($value);
+            }
           }
-
-          // Warn: text() allows 255 chars max
-          $options[$this->sanitizer->fieldName($input)] = $this->sanitizer->text($value);
         }
       }
     }
@@ -275,10 +302,10 @@ class PadOpt extends WireData implements Module {
             $order_product[0]->save();
 
           } elseif($order_product->count > 1) {
-            $this->warning("Too much products corresponding to {$product_id}/{$variation_id} in the order.");
+            $this->logError("Too much products corresponding to {$product_id}/{$variation_id} in the order");
 
           } else {
-            $this->warning("No product corresponding to {$product_id}/{$variation_id} in the order.");
+            $this->logError("No product corresponding to {$product_id}/{$variation_id} in the order");
           }
         }
       }
@@ -393,7 +420,7 @@ class PadOpt extends WireData implements Module {
       $event->return = $page;
 
     } else {
-      $this->error("Cannot show products options");
+      $this->logError("Cannot show products options");
     }
   }
 
@@ -413,34 +440,58 @@ class PadOpt extends WireData implements Module {
 
     foreach($options as $name => $value) {
       if($name != 'product_id') {
-        $field_label = $this->fields->get($name)->label;
-        $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
-        $field_txt = '';
+        $field = $this->fields->get($name);
 
-        if(empty($field_options)) {
-          $field_txt = "<em>$value</em>";
+        if(!empty($field)) {
+          $field_label = $field->label;
+          $field_txt = '';
 
-        } else {
+          // Only for filled fields (may be optional)
+          if($value != '') {
 
-          // Values composed of multiple values (eg. checkboxes)
-          if(strpos($value, '|') !== false) {
-            $subvalues = explode('|', $value);
-            $field_txt = '<ul>';
+            // Field with predefined options (eg. select, checkboxes, radios)
+            if($field->data['inputfieldClass'] == 'InputfieldSelect') {
+              $field_options = $field->type->getOptions($this->fields->get($name));
   
-            foreach($subvalues as $subvalue) {
-              $field_txt .= "<li><em>{$field_options->get($subvalue)->data['title']}</em></li>";
-            }
-  
-            $field_txt .= '</ul>';
-  
-          } else {
-            if(!empty($value)) {
-              $field_txt = "<em>{$field_options->get($value)->data['title']}</em>";
+              // Values composed of multiple values (eg. checkboxes)
+              if(strpos($value, '|') !== false) {
+                $subvalues = explode('|', $value);
+                $field_txt = '<ul>';
+    
+                foreach($subvalues as $subvalue) {
+                  $field_option = $field_options->get($subvalue);
+
+                  if(empty(!$field_option)) {
+                    $field_txt .= "<li><em>{$field_option->data['title']}</em></li>";
+                  } else {
+                    $this->logError("Value {$subvalue} of the field {$name} does not exist");
+                  }
+                }
+    
+                $field_txt .= '</ul>';
+    
+              // Atomic value (eg. select with one choice)
+              } else {
+                $field_option = $field_options->get($value);
+
+                if(empty(!$field_option)) {
+                  $field_txt = "<em>{$field_option->data['title']}</em>";
+                } else {
+                  $this->logError("Value {$value} of the field {$name} does not exist");
+                }
+              }
+
+            // Free field (eg. text, textarea)
+            } else {
+              $field_txt = "<em>{$value}</em>";
             }
           }
-        }
+  
+          $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
 
-        $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
+        } else {
+          $this->logError("Select field {$name} does not have options");
+        }
       }
     }
 
@@ -464,9 +515,27 @@ class PadOpt extends WireData implements Module {
     $sth->bindParam(":sess_id", $this->session_id);
     $sth->execute();
 
+    $options = array();
     $serialized_options = $sth->fetchAll(\PDO::FETCH_CLASS);
-    $serialized_options = $serialized_options[0];
-    $options = unserialize($serialized_options->{$this->db_optcolumn});
+
+    if(count($serialized_options) > 0) {
+      $serialized_options = $serialized_options[0];
+      $serialized_options = $serialized_options->{$this->db_optcolumn};
+
+      // Product with PadOpt options
+      if(!empty($serialized_options)) {
+        $unserialized_options = unserialize($serialized_options);
+
+        if($unserialized_options) {
+          $options = $unserialized_options;
+        } else {
+          $this->logError("Product {$product_id}/{$variation_id} options are not unserializable");
+        }
+      }
+
+    } else {
+      $this->logError("Product {$product_id}/{$variation_id} does not exist in the db for this session");
+    }
 
     return $options;
   }
@@ -501,26 +570,69 @@ class PadOpt extends WireData implements Module {
 
     foreach($options as $name => $value) {
       if($name != 'product_id') {
-        $field_options = $this->fields->get($name)->type->getOptions($this->fields->get($name));
+
+        // Only for filled fields (may be optional)
+        if($value != '') {
+          $field = $this->fields->get($name);
+
+          if(!empty($field)) {
   
-        if(!empty($field_options)) {
-          if(strpos($value, '|') !== false) {
-            $subvalues = explode('|', $value);
-    
-            foreach($subvalues as $subvalue) {
-              $options_price += $this->extractOptionPriceFromTitle($field_options->get($subvalue)->data['title']);
+            // Field with predefined options (eg. select, checkboxes, radios)
+            if($field->data['inputfieldClass'] == 'InputfieldSelect') {
+              $field_options = $field->type->getOptions($this->fields->get($name));
+        
+              if(!empty($field_options)) {
+
+                // Value composed of multiple values (eg. checkboxes)
+                if(strpos($value, '|') !== false) {
+                  $subvalues = explode('|', $value);
+          
+                  foreach($subvalues as $subvalue) {
+                    $field_option = $field_options->get($subvalue);
+  
+                    if(empty(!$field_option)) {
+                      $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
+                    } else {
+                      $this->logError("Value {$subvalue} of the field {$name} does not exist");
+                    }
+                  }
+
+                // Atomic value (eg. select with one choice)
+                } else {
+                  $field_option = $field_options->get($value);
+  
+                  if(empty(!$field_option)) {
+                    $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
+                  } else {
+                    $this->logError("Value {$value} of the field {$name} does not exist");
+                  }
+                }
+              } else {
+                $this->logError("Select field {$name} does not have options");
+              }
+  
+            // Free field (eg. text, textarea)
+            } else {
+              $options_price += $this->extractOptionPriceFromTitle($field->label);
             }
-    
           } else {
-            if($value != '') {
-              $options_price += $this->extractOptionPriceFromTitle($field_options->get($value)->data['title']);
-            }
+            $this->logError("Field {$name} does not exist");
           }
         }
       }
     }
 
     return $options_price;
+  }
+
+  /**
+   * Error logging
+   *
+   * @param string $msg
+   */
+  private function logError($msg) {
+    $this->error($msg);
+    $this->log->save($this->log_name, $msg);
   }
 
 
@@ -589,32 +701,49 @@ class PadOpt extends WireData implements Module {
       }
     }
 
+    $product_id = $this->page->id;
+    $variation_id = -1;
+
+    // The variation_id is always different because the chosen options are (potentially) always different
+    $i = 0;
+    do {
+      $variation_id = rand(100000, 10000000);
+
+      if($i++ > 1000) {
+        $this->logError("Variation ID cannot be generated");
+        exit();
+      }
+    } while(!($this->pages->get("pad_product_id={$product_id}, pad_variation_id={$variation_id}") instanceof NullPage));
+
     // This hidden input is required to ask the other processes to take the options into account
     $render = "<input type='hidden' name='{$this->input_padopt_enabled}' value='1' />";
 
-    // The variation_id is always different because the chosen options are (potentially) always different
-    $render .= "<input type='hidden' name='variation_id' value='" . rand(100000, 1000000) . "' />";
-    $render .= "<input type='hidden' name='product_id' value='{$this->page->id}' />";
+    $render .= "<input type='hidden' name='product_id' value='{$product_id}' />";
+    $render .= "<input type='hidden' name='variation_id' value='{$variation_id}' />";
 
     // Step 2: Produce HTML output from each group of fields
     foreach($inputfield_groups as $inputfield_group) {
 
       // Group of separators (ie. titles with optional description/notes)
-      if($inputfield_group['prefix'] == $this->separator_prefix) {
-        $separator = "<h2>{$inputfield_group['inputfields'][0]->label}</h2>";
+      if($inputfield_group['prefix'] == "{$this->general_prefix}{$this->separator_prefix}") {
+        $separators = '';
 
-	if(!empty($inputfield->description)) {
-          $separator .= "<div>{$inputfield_group['inputfields'][0]->description}</div>";
+        foreach($inputfield_group['inputfields'] as $inputfield) {
+          $separators .= "<h2>{$inputfield->label}</h2>";
+  
+          if(!empty($inputfield->description)) {
+            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}_description'>{$inputfield->description}</div>";
+          }
+  
+          if(!empty($inputfield->notes)) {
+            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}_notes'>{$inputfield->notes}</div>";
+          }
         }
 
-	if(!empty($inputfield->notes)) {
-          $separator .= "<div>{$inputfield_group['inputfields'][0]->notes}</div>";
-        }
-
-        $render .= $separator;
+        $render .= $separators;
 
       // Group of core input fields (ie. field types available in PW)
-      } elseif($inputfield_group['prefix'] == $this->input_prefix) {
+      } elseif($inputfield_group['prefix'] == "{$this->general_prefix}{$this->input_prefix}") {
         $form = $this->modules->get('InputfieldForm');
 
         foreach($inputfield_group['inputfields'] as $inputfield) {
@@ -644,7 +773,7 @@ class PadOpt extends WireData implements Module {
    */
   public function getCartProductOptionsInfos($product) {
     $options = $this->getCartProductOptions($product->product_id, $product->variation_id);
-    $view_link = '';
+    $view_url = '';
     $options_list = '';
     $options_price = '';
 
@@ -738,11 +867,11 @@ class PadOpt extends WireData implements Module {
     $this->message("Dropped SQL column {$this->db_optcolumn} in carts");
   }
 
-  public function getInputPrefix() {
-    return $this->input_prefix;
-  }
-
   public function getGeneralPrefix() {
     return $this->general_prefix;
+  }
+
+  public function getLogName() {
+    return $this->log_name;
   }
 }

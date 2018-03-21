@@ -51,6 +51,9 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   // Link to the PadOpt module
   protected $padopt;
 
+  // Log lines prefix
+  protected $log_prefix = 'LiveCustomizers:';
+
   public static function getModuleInfo() {
     return array(
       'title' => 'PadLoper Client Live Customizers',
@@ -136,10 +139,33 @@ EOT;
     // (format <general-prefix>_<type-prefix>_<live-customizer-name>_)
     $this->viewport_name = preg_replace("/^{$this->padopt->getGeneralPrefix()}{$this->input_prefix}([a-z0-9]+)_.*$/i", '$1', $inputfield_name);
 
-    // All the images contained in the live customizer directory are supposed to use the same odds
-    $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
-    $this->viewport_width = $viewport_size[0];
-    $this->viewport_height = $viewport_size[1];
+    if($inputfield_name == $this->viewport_name) {
+      $this->logError("Input name syntax error: {$inputfield_name}");
+    }
+
+    try {
+      // All the images contained in the live customizer directory are supposed to use the same odds
+      $viewport_size = getimagesize("../{$this->img_path}/{$this->viewport_name}/{$this->img_default}");
+
+      $this->viewport_width = $viewport_size[0];
+      $this->viewport_height = $viewport_size[1];
+
+    } catch(Exception $e) {
+      $this->logError("Default image ../{$this->img_path}/{$this->viewport_name}/{$this->img_default} is not readable");
+
+      $this->viewport_width = 0;
+      $this->viewport_height = 0;
+    }
+  }
+
+  /**
+   * Error logging
+   *
+   * @param string $msg
+   */
+  private function logError($msg) {
+    $this->error($msg);
+    $this->log->save($padopt->getLogName(), "{$this->log_prefix} {$msg}");
   }
 
 

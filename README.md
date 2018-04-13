@@ -51,10 +51,16 @@ You can now make an order: a list of the selected options will be available dire
 
 With PadLoper, you are encouraged to customize the templates by copying them from *site/modules/PadLoper/templates/* to *site/templates/padloper/*.
 
-With PadOpt, everywhere there is a *foreach* with PadLoper products, you can use:
+With PadOpt, everywhere there is a *foreach* with PadLoper products taken from *$cart->getCart()*, you can use:
 
 ```
 list($padopt_url, $padopt_list, $padopt_price) = $modules->get('PadOpt')->getCartProductOptionsInfos($p);
+```
+
+When products are taken from *$order->pad_products*, you can use:
+
+```
+list($padopt_url, $padopt_list, $padopt_price) = $modules->get('PadOpt')->getOrderProductOptionsInfos($p);
 ```
 
 - **$p**: PadLoper product (eg. as in *foreach($items as $p)*)
@@ -62,7 +68,7 @@ list($padopt_url, $padopt_list, $padopt_price) = $modules->get('PadOpt')->getCar
 - **$padopt_list**: HTML list of the chosen options for this product
 - **$padopt_price**: Total price of the options (already included in the final price of the product) for this product
 
-Templates to update:
+Examples of templates to update:
 
 - To show options in carts, update *edit-cart.php*
 - To show options in order confirmations and invoices, update *order-products-table.php*

@@ -318,7 +318,7 @@ class PadOpt extends WireData implements Module {
     $price = (float) $product->$pricefield;
 
     $options = $this->getCartProductOptions($product_id, $variation_id);
-    $options_price = (float) $this->getCartProductOptionsPrice($options);
+    $options_price = (float) $this->getProductOptionsPrice($options);
 
     $event->return = $price + $options_price;
   }
@@ -423,7 +423,7 @@ EOT;
             $options_list = $this->renderOptionsHtml($options);
 
             $product_id = $options['product_id'];
-            $options_price = $this->getCartProductOptionsPrice($options);
+            $options_price = $this->getProductOptionsPrice($options);
             $json_options = json_encode($options);
             $url_options = base64_encode($json_options);
             $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
@@ -457,6 +457,54 @@ EOT;
   /***********************/
   /** PRIVATE FUNCTIONS **/
   /***********************/
+
+  /**
+   * Return information about the options of a product, from the cart or an order
+   *
+   * @param Page $product
+   * @param bool from_cart Is the product currently stored in the cart
+   * @return array 0=Options URL, 1=HTML options list, 2=Total options price
+   */
+  private function getProductOptionsInfos($product, $from_cart) {
+    $options = '';
+    $product_id = '';
+
+    // Options have to be fetched from the MySQL db
+    if($from_cart) {
+      $options = $this->getCartProductOptions($product->product_id, $product->variation_id);
+      $product_id = $product->product_id;
+
+    // Options were already integrated before to the page with convertCartWithOptionsToOrder
+    } elseif(isset($product->{$this->field_options_name})) {
+      $serialized_options = $product->{$this->field_options_name};
+      $unserialized_options = unserialize($serialized_options);
+
+      if($unserialized_options) {
+        $options = $unserialized_options;
+        $product_id = $options['product_id'];
+
+      } else {
+        $this->logError("Product options are not unserializable");
+      }
+    }
+      
+    $view_url = '';
+    $options_list = '';
+    $options_price = '';
+
+    if(!empty($options)) {
+      $json_options = json_encode($options);
+      $url_options = base64_encode($json_options);
+  
+      $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+      $options_list = $this->renderOptionsHtml($options);
+      $options_price = $this->getProductOptionsPrice($options);
+    }
+
+    $infos = array($view_url, $options_list, $options_price);
+    
+    return $infos;
+  }
 
   /**
    * Produce the HTML code corresponding to the options list
@@ -599,7 +647,7 @@ EOT;
    * @param array $options Option values associated to a product
    * @return float
    */
-  private function getCartProductOptionsPrice($options) {
+  private function getProductOptionsPrice($options) {
     $options_price = 0;
 
     foreach($options as $name => $value) {
@@ -811,23 +859,17 @@ EOT;
    * @return array 0=Options URL, 1=HTML options list, 2=Total options price
    */
   public function getCartProductOptionsInfos($product) {
-    $options = $this->getCartProductOptions($product->product_id, $product->variation_id);
-    $view_url = '';
-    $options_list = '';
-    $options_price = '';
+    return $this->getProductOptionsInfos($product, true);
+  }
 
-    if(!empty($options)) {
-      $json_options = json_encode($options);
-      $url_options = base64_encode($json_options);
-  
-      $view_url = "{$this->pages->get($product->product_id)->url}#{$url_options}";
-      $options_list = $this->renderOptionsHtml($options);
-      $options_price = $this->getCartProductOptionsPrice($options);
-    }
-
-    $infos = array($view_url, $options_list, $options_price);
-    
-    return $infos;
+  /**
+   * Return information about the options of a product which is a part of an order
+   *
+   * @param Page $product
+   * @return array 0=Options URL, 1=HTML options list, 2=Total options price
+   */
+  public function getOrderProductOptionsInfos($product) {
+    return $this->getProductOptionsInfos($product, false);
   }
 
   /**

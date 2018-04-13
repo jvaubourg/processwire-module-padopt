@@ -18,13 +18,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-window.addEventListener('load', start, false);
+window.addEventListener('load', startPadoptProduct, false);
 
 /**
  * Called once the page is loaded
  */
-function start() {
-  reviewMode();
+function startPadoptProduct() {
+  padoptProductReviewMode();
 }
 
 /**
@@ -32,7 +32,7 @@ function start() {
  *
  * @param string $msg
  */
-function logError(msg) {
+function padoptProductLogError(msg) {
   console.log(padopt_logname + ': ' + msg);
 }
 
@@ -42,7 +42,7 @@ function logError(msg) {
  * anymore). The default values are read from the JSON passed to the page after
  * the hash in the URL
  */
-function reviewMode() {
+function padoptProductReviewMode() {
 
   // Prefix used by PW when transforming fields into inputfields
   const input_id_prefix = 'Inputfield_';
@@ -79,11 +79,11 @@ function reviewMode() {
                   values.push(1);
 
                 } else {
-                  logError("Input field " + id + " not found");
+                  padoptProductLogError("Input field " + id + " not found");
                 }
 
               } else {
-                logError("Input field " + id + " subvalues must be numbers: " + subvalues[i]);
+                padoptProductLogError("Input field " + id + " subvalues must be numbers: " + subvalues[i]);
               }
             }
   
@@ -103,10 +103,10 @@ function reviewMode() {
                 values.push(value);
 
               } else {
-                logError("Input field " + id + " (or " + alt_id + ") not found");
+                padoptProductLogError("Input field " + id + " (or " + alt_id + ") not found");
               }
             } else {
-              logError("Input field " + id + " not found");
+              padoptProductLogError("Input field " + id + " not found");
             }
           }
   
@@ -141,6 +141,11 @@ function reviewMode() {
           for(var j = 0; j < inputs.length; j++) {
             inputs[j].readonly = true;
             inputs[j].disabled = true;
+
+            // Hide 'Add to Cart' buttons
+            if(input_types[i] == 'input' && inputs[j].getAttribute('type') == 'submit') {
+              inputs[j].style.display = 'none';
+            }
           }
         }
       }

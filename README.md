@@ -67,6 +67,13 @@ Templates to update:
 - To show options in carts, update *edit-cart.php*
 - To show options in order confirmations and invoices, update *order-products-table.php*
 
+You can also define your own CSS and JS files:
+
+- *site/templates/styles/padopt/padopt.css* and
+- *site/templates/scripts/padopt/padopt.js* will be included in all non-admin pages;
+- *site/templates/styles/padopt/padopt_product.css* and
+- *site/templates/scripts/padopt/padopt_product.js* will be included in all PadOpt product pages.
+
 ## PadOpt Submodules
 
 PadOpt supports a submodule system, to easily add features.
@@ -131,10 +138,10 @@ All other changes are done on the fly with hooks.
 
 ## To Do
 
-- manage required fields;
-- add an options edit link in carts;
-- add JS live updating of the product price when choosing options;
-- create a submodule for file uploading;
+- manage required fields
+- add an options edit link in carts
+- add JS live updating of the product price when choosing options
+- create a submodule for file uploading
 
 ## License
 

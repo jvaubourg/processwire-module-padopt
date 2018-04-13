@@ -65,7 +65,7 @@ class PadOpt extends WireData implements Module {
 
   public static function getModuleInfo() {
     return array(
-      'title' => 'PadLoper Client Options',
+      'title' => 'PadOpt - PadLoper Client Options',
       'version' => 1,
       'summary' => 'Add custom client options to products for PadLoper',
       'icon' => 'cart-plus',
@@ -78,8 +78,6 @@ class PadOpt extends WireData implements Module {
   }
 
   public function init() {
-
-foreach($this->session as $name => $value) 
     $this->session_id = session_id();
 
     $this->addHookBefore('ProcessField::executeSave', $this, 'automaticTagging');
@@ -130,8 +128,8 @@ foreach($this->session as $name => $value)
       $inputfield_select_tpl = $this->modules->get('InputfieldSelect');
 
       $inputfield_select_tpl->name = $inputfield_int_id->name;
-      $inputfield_select_tpl->label = __("Form");
-      $inputfield_select_tpl->description = __("Choose the template you have created for defining the form to display on this page.");
+      $inputfield_select_tpl->label = __("PadOpt Form");
+      $inputfield_select_tpl->description = __("Choose the template you have created for defining the form with options to display on this page.");
 
       // Build a select with all available non-system templates in PW
       foreach($this->templates->getAll() as $key => $template) {
@@ -333,28 +331,56 @@ foreach($this->session as $name => $value)
   public function addScriptsAndStyles($event) {
     $page = $event->object; 
     $module_url = $this->config->urls->siteModules . basename(__DIR__);
+    $root_url = $_SERVER['DOCUMENT_ROOT'];
 
-    $scripts = <<<EOT
+    $log_script = <<<EOT
       <script>
         const padopt_logname = '{$this->log_name}';
       </script>
 EOT;
 
+    $scripts = '';
     $styles = '';
 
-    // Only for PadOpt product pages
-    if($this->isPadoptProductPage($page)) {
-      $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt.js'></script>";
-      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt.css' rel='stylesheet' />";
+    // Admin pages
+    if($page->template->name == 'admin') {
+
+      // Only for PadLoper admin pages
+      if($page->name == 'padloper') {
+        $scripts .= "{$log_script}<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_admin.js'></script>";
+        $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt_admin.css' rel='stylesheet' />";
+      }
+
+    // Public pages
+    } else {
+
+      // Only for PadOpt product pages
+      if($this->isPadoptProductPage($page)) {
+        $scripts .= "{$log_script}<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_product.js'></script>";
+
+        // Add user defined scripts for PadOpt products
+        if(is_file("{$root_url}{$this->config->urls->templates}/scripts/padopt/padopt_product.js")) {
+          $scripts .= "<script type='text/javascript' src='{$this->config->urls->templates}/scripts/padopt/padopt_product.js'></script>";
+        }
+  
+        // Add user defined styles
+        if(is_file("{$root_url}{$this->config->urls->templates}/styles/padopt/padopt_product.css")) {
+          $styles .= "<link type='text/css' href='{$this->config->urls->templates}/styles/padopt/padopt_product.css' rel='stylesheet' />";
+        }
+      }
+
+      // Add user defined scripts for every page (useful for templates with PadOpt infos included)
+      if(is_file("{$root_url}{$this->config->urls->templates}/scripts/padopt/padopt.js")) {
+        $scripts .= "<script type='text/javascript' src='{$this->config->urls->templates}/scripts/padopt/padopt.js'></script>";
+      }
+
+      // Add user defined styles
+      if(is_file("{$root_url}{$this->config->urls->templates}/styles/padopt/padopt.css")) {
+        $styles .= "<link type='text/css' href='{$this->config->urls->templates}/styles/padopt/padopt.css' rel='stylesheet' />";
+      }
     }
     
-    // Only for PadLoper admin pages
-    elseif($page->template->name == 'admin' && $page->name == 'padloper') {
-      $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_admin.js'></script>";
-      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt_admin.css' rel='stylesheet' />";
-    }
-
-    if(!empty($styles) || !empty($scripts)) {
+    if(!empty($styles.$scripts)) {
       $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }
   }
@@ -495,7 +521,7 @@ EOT;
             }
           }
   
-          $options_list .= "<li><strong>{$field_label}:</strong> {$field_txt}</li>";
+          $options_list .= "<li><span class='padopt_option_label'>{$field_label}:</span> <span class='padopt_option_value'>{$field_txt}</span></li>";
 
         } else {
           $this->logError("Select field {$name} does not have options");
@@ -812,7 +838,7 @@ EOT;
     * @return bool
     */
   public function isPadoptProductPage($page) {
-    return $page->template->fields->get($this->field_tpl_name);
+    return !empty($page->get($this->field_tpl_name));
   }
 
   /**

@@ -20,7 +20,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-include_once(__DIR__ . DIRECTORY_SEPARATOR . 'PadOptSubmodule.interface');
+include_once(__DIR__ . '/PadOptSubmodule.interface');
 
 class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module {
 
@@ -114,7 +114,6 @@ EOT;
         </style>
 EOT;
       $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_livecustomizers.js'></script>";
-      $styles .= "<link type='text/css' href='{$module_url}/templates/styles/padopt_livecustomizers.css' rel='stylesheet' />";
 
       $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }

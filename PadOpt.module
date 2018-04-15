@@ -496,7 +496,7 @@ EOT;
       $json_options = json_encode($options);
       $url_options = base64_encode($json_options);
   
-      $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
+      $view_url = "{$this->pages->get($product_id)->httpUrl}#{$url_options}";
       $options_list = $this->renderOptionsHtml($options);
       $options_price = $this->getProductOptionsPrice($options);
     }
@@ -540,7 +540,7 @@ EOT;
                     $field_option = $field_options->get($subvalue);
 
                     if(empty(!$field_option)) {
-                      $field_txt .= "<li><em>{$field_option->data['title']}</em></li>";
+                      $field_txt .= "<li><span class='padopt_option_value'>{$field_option->data['title']}</span></li>";
                     } else {
                       $this->logError("Option value {$subvalue} of the field {$name} does not exist");
                     }
@@ -557,7 +557,7 @@ EOT;
                 $field_option = $field_options->get($value);
 
                 if(empty(!$field_option)) {
-                  $field_txt = "<em>{$field_option->data['title']}</em>";
+                  $field_txt = "<span class='padopt_option_value'>{$field_option->data['title']}</span>";
                 } else {
                   $this->logError("Option value {$value} of the field {$name} does not exist");
                 }
@@ -565,7 +565,7 @@ EOT;
 
             // Free field (eg. text, textarea)
             } else {
-              $field_txt = "<em>{$value}</em>";
+              $field_txt = "<span class='padopt_option_value'>{$value}</span>";
             }
           }
   

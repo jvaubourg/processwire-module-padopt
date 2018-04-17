@@ -34,10 +34,10 @@ prodid = json.loads(prodid.group(1))
 options_lists = {}
 
 for variation in inventory:
-  variationName = variation.replace('pa_', 'padopt_')
+  variationName = variation.replace('pa_', '')
   variationName = re.sub(r'-([A-Za-z])', lambda x: x.group(1).upper(), variationName)
 
-  optionid = 1
+  optionid = 2
   options_lists[variationName] = {}
 
   for option in inventory[variation]:
@@ -81,14 +81,15 @@ for variation in inventory:
 
     time.sleep(1)
 
-print()
+print
 
 for variation, options_list in options_lists.items():
   print('=> ' + variation + ':')
+  print('1=Select an option')
 
   for i, option in options_list.items():
     print(str(i) + '=' + option)
 
-  print()
+  print
 
 exit(0)

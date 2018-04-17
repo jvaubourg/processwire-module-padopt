@@ -819,11 +819,11 @@ EOT;
           $separators .= "<h2>{$inputfield->label}</h2>";
   
           if(!empty($inputfield->description)) {
-            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}_description'>{$inputfield->description}</div>";
+            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}description'>{$inputfield->description}</div>";
           }
   
           if(!empty($inputfield->notes)) {
-            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}_notes'>{$inputfield->notes}</div>";
+            $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}notes'>{$inputfield->notes}</div>";
           }
         }
 

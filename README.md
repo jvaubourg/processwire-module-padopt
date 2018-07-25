@@ -17,11 +17,19 @@ Installation:
 2. Create or modify a *product template* for PadLoper (see settings of PadCart), and add the *padopt_tpl_id* field
 3. On the PHP side of the template, you must have something like:
 ```
-$content .= "<form method='post' class='padloper-cart-add-product' action='{$config->urls->root}padloper/add/'>";
+$content .= "<form method='post' class='InputfieldForm padloper-cart-add-product' action='{$config->urls->root}padloper/add/'>";
 $content .= $modules->get('PadOpt')->renderFieldset();
+$content .= $padopt->getRequiredFieldsErrorPanel(_("<message about required fields not correctly filled"));
 $content .= "<input type='submit' name='pad_submit' value='" . __("Add to cart") . "' /></form>";
 ```
 4. You now can create new customizable products, or update already existing ones to complete them with some options
+
+For required fields, you can set a list a strings corresponding to default choices in select fields:
+```
+$modules->get('PadOpt')->setSelectPromptKeywords(array('choisissez', 'choisir', 'sélectionnez', 'choose', 'select', 'wähle'));
+```
+
+Required-if and Show-if features from the PW admin are usable.
 
 ## How to Define Options of a Product
 
@@ -144,7 +152,6 @@ All other changes are done on the fly with hooks.
 
 ## To Do
 
-- manage required fields
 - add an options edit link in carts
 - add JS live updating of the product price when choosing options
 - create a submodule for file uploading

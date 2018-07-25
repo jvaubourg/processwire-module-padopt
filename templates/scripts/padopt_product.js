@@ -25,6 +25,12 @@ window.addEventListener('load', startPadoptProduct, false);
  */
 function startPadoptProduct() {
   padoptProductReviewMode();
+
+  var forms = document.getElementsByClassName('padloper-cart-add-product');
+
+  if(forms.length > 0) {
+    forms[0].addEventListener('submit', padoptProductAdd, false);
+  }
 }
 
 /**
@@ -34,6 +40,57 @@ function startPadoptProduct() {
  */
 function padoptProductLogError(msg) {
   console.log(padopt_logname + ': ' + msg);
+}
+
+/**
+ * Called when the "Add to cart" form is submitted
+ *
+ * @param Event e
+ * @return bool From has required fields not filled or not
+ */
+function padoptProductAdd(e) {
+  if(padoptProductCheckRequiredFields()) {
+    this.submit();
+    return true;
+  }
+
+  e.preventDefault();
+
+  return false;
+}
+
+/**
+ * Check if all required fields are filled or not
+ *
+ * @return bool
+ */
+function padoptProductCheckRequiredFields() {
+  var not_filled = 0;
+  var required_fields = document.getElementsByClassName('required');
+
+  for(var i = 0; i < required_fields.length; i++) {
+    required_fields[i].className = required_fields[i].className.replace(/\s*padopt_required\s*/, '');
+
+    // A select field with a choice marked as prompt is considered not filled, as an empty value
+    if(required_fields[i].value == '' || (required_fields[i].tagName.match(/select/i) && required_fields[i].options[required_fields[i].selectedIndex].getAttribute('data-isprompt') == 1)) {
+      required_fields[i].className += ' padopt_required';
+      not_filled++;
+    }
+  }
+
+  if(not_filled > 0) {
+    $('#padopt_error').slideDown('slow', function() {
+      $('#padopt_error').fadeIn(200);
+      $('#padopt_error').fadeOut(100);
+      $('#padopt_error').fadeIn(1000);
+    });
+
+    return false;
+  }
+
+  $('#padopt_error').hide();
+
+  return true;
 }
 
 /**

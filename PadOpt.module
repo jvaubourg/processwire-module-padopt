@@ -59,6 +59,9 @@ class PadOpt extends WireData implements Module {
   // Errors will be logged under this category in PW and in JS console
   protected $log_name = 'padopt';
 
+  // Keywords used in the text of the default choice for select fields
+  protected $select_prompt_keywords = array();
+
   protected $session_id;
   protected $stored_options = array();
   protected $registered_submodules = array();
@@ -356,7 +359,31 @@ EOT;
 
       // Only for PadOpt product pages
       if($this->isPadoptProductPage($page)) {
+
+        // Load JS/CSS modules
+        $this->modules->get('JqueryCore');
+
+        // Integrate JS scripts from the previous modules
+        foreach($this->config->scripts as $script) {
+          if(preg_match('/JqueryCore/', $script)) {
+            $scripts .= "<script type='text/javascript' src='{$script}'></script>";
+          }
+        }
+
+        // Integrate CSS sheets from the previous modules
+        foreach($this->config->styles as $style) {
+          if(preg_match('/InputfieldCheckboxes/', $script)) {
+            $styles .= "<link rel='stylesheet' type='text/css' href='{$style}' />";
+          }
+        }
+        
+        // Input fields style from PW
+        $scripts .= "<script type='text/javascript' src='{$config->urls->root}/wire/templates-admin/scripts/inputfields.js'></script>";
+        //$styles .= "<link rel='stylesheet' type='text/css' href='{$config->urls->root}/wire/templates-admin/styles/inputfields.css' />";
+
+        // Default script/style for PadOpt products
         $scripts .= "{$log_script}<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_product.js'></script>";
+        $styles .= "<link rel='stylesheet' type='text/css' href='{$module_url}/templates/styles/padopt_product.css' />";
 
         // Add user defined scripts for PadOpt products
         if(is_file("{$root_url}{$this->config->urls->templates}/scripts/padopt/padopt_product.js")) {
@@ -739,6 +766,26 @@ EOT;
   }
 
   /**
+   * Set the keywords used in the text of the default choice for select fields
+   *
+   * @param array $keywords
+   */
+  public function setSelectPromptKeywords($keywords) {
+    $this->select_prompt_keywords = $keywords;
+  }
+
+  /**
+   * Return the HTML code of the error panel when required fields are not filled
+   * and the client has submitted the form
+   *
+   * @param string $text Message to show
+   * @return string HTML code
+   */
+  public function getRequiredFieldsErrorPanel($text) {
+    return "<div id='padopt_error'>{$text} &#9786;</div>";
+  }
+
+  /**
    * Return the HTML code of the input fields to add to the PadLoper form, in
    * which there is the "Add to cart" button. This function should be called
    * from a PadOpt product template, with a <field_tpl_name> field defined
@@ -808,6 +855,8 @@ EOT;
     $render .= "<input type='hidden' name='product_id' value='{$product_id}' />";
     $render .= "<input type='hidden' name='variation_id' value='{$variation_id}' />";
 
+    $first_separator = true;
+
     // Step 2: Produce HTML output from each group of fields
     foreach($inputfield_groups as $inputfield_group) {
 
@@ -817,6 +866,11 @@ EOT;
 
         foreach($inputfield_group['inputfields'] as $inputfield) {
           $separators .= "<h2>{$inputfield->label}</h2>";
+
+          if($first_separator) {
+            $separators .= '<span class="padopt_required_note">* : ' . _("Choix nécessaire") . '</span>';
+            $first_separator = false;
+          }
   
           if(!empty($inputfield->description)) {
             $separators .= "<div class='{$this->general_prefix}{$this->separator_prefix}description'>{$inputfield->description}</div>";
@@ -846,6 +900,16 @@ EOT;
       // Group of fields defined for a registred submodule
       } elseif(isset($this->registered_submodules[$inputfield_group['prefix']])) {
         $render .= $this->registered_submodules[$inputfield_group['prefix']]->render($inputfield_group['inputfields']);
+      }
+    }
+
+    // Mark every first option of select fields when its text contains one of the select_prompt_keywords
+    if(!empty($this->select_prompt_keywords)) {
+      if(preg_match_all('/<select[^>]*>\s*<option[^>]*>[^<]*(?:' . implode('|', $this->select_prompt_keywords) . ')[^<]*<\/option>/i', $render, $select_prompts)) {
+        foreach($select_prompts[0] as $select_prompt) {
+          $select_prompt_tagged = str_replace('<option', '<option data-isprompt="1"', $select_prompt);
+          $render = str_replace($select_prompt, $select_prompt_tagged, $render);
+        }
       }
     }
 

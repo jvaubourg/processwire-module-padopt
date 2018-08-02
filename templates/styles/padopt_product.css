@@ -2,6 +2,10 @@
   content: ' *';
 }
 
+i.toggle-icon, .padopt_fieldset .InputfieldHeaderHidden {
+  display: none;
+}
+
 form.InputfieldForm input.padopt_required, form.InputfieldForm select.padopt_required, form.InputfieldForm textarea.padopt_required {
   border: 2px solid #a10d0d;
 }

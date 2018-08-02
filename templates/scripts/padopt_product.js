@@ -30,6 +30,10 @@ function startPadoptProduct() {
 
   if(forms.length > 0) {
     forms[0].addEventListener('submit', padoptProductAdd, false);
+
+    forms[0].querySelectorAll('input, select, textarea').forEach(function(field) {
+      field.addEventListener('change', updateFinalPrice, false);
+    });
   }
 }
 
@@ -40,6 +44,10 @@ function startPadoptProduct() {
  */
 function padoptProductLogError(msg) {
   console.log(padopt_logname + ': ' + msg);
+}
+
+function updateFinalPrice() {
+  //var base_price = document.gtg
 }
 
 /**

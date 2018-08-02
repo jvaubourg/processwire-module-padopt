@@ -41,6 +41,9 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   // CSS class name for the viewport
   protected $class_viewport = 'padopt_livecustomizer_viewport';
 
+  // CSS class name for the more nested empty div inside the viewport
+  protected $class_spacer = 'padopt_spacer';
+
   // Prefix of the input field ids
   protected $id_prefix = 'padoptlc_';
 
@@ -102,18 +105,20 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
           const padoptlc_imgurl = '{$this->urls->site}{$this->img_path}';
         </script>
 EOT;
+      $viewport_ratio = floor($this->viewport_height / $this->viewport_width * 100);
+
       $styles = <<<EOT
         <style>
           .{$this->class_viewport} {
             background-image: url({$this->urls->site}{$this->img_path}{$this->viewport_name}/{$this->img_default});
           }
-          .{$this->class_viewport}, .{$this->class_viewport} div {
-            width: {$this->viewport_width}px;
-            height: {$this->viewport_height}px;
+          .{$this->class_viewport} .{$this->class_spacer} {
+            padding-bottom: {$viewport_ratio}%;
           }
         </style>
 EOT;
       $scripts .= "<script type='text/javascript' src='{$module_url}/templates/scripts/padopt_livecustomizers.js'></script>";
+      $styles .= "<link rel='stylesheet' type='text/css' href='{$module_url}/templates/styles/padopt_livecustomizers.css' />";
 
       $event->return = str_replace('</head>', "{$styles}{$scripts}</head>", $event->return); 
     }
@@ -192,6 +197,8 @@ EOT;
       $render .= "<div id='{$this->id_prefix}{$inputfield->name}'>";
       $form->add($inputfield);
     }
+
+    $render .= "<div class='{$this->class_spacer}'></div>";
   
     foreach($inputfields as $inputfield) {
       $render .= '</div>';

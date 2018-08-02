@@ -46,6 +46,9 @@ function locateLiveCustomizers() {
           modifiers[j].disabled = false;
           modifiers[j].dispatchEvent(new Event('change'));
           modifiers[j].disabled = true;
+
+        } else {
+          modifiers[j].dispatchEvent(new Event('change'));
         }
       }
     }
@@ -63,12 +66,18 @@ function changeModifier() {
   // Updating an option value means updating the background image of the corresponding layer
   var viewport_layer = document.getElementById(padoptlc_idprefix + this.name);
 
-  // Remove the prefix from the input field name, to keep only the name of
-  // the option
-  var img_name_regex = new RegExp('^' + padoptlc_inputprefix, 'i');
-  var img_name = this.name.replace(img_name_regex, '');
+  if(this.value == '') {
+    viewport_layer.style.backgroundImage = 'none';
 
-  // The background image to show should have a name with a
-  // <option-name>_<value-chosen>.png format
-  viewport_layer.style.backgroundImage = 'url(' + padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
+  } else {
+
+    // Remove the prefix from the input field name, to keep only the name of
+    // the option
+    var img_name_regex = new RegExp('^' + padoptlc_inputprefix, 'i');
+    var img_name = this.name.replace(img_name_regex, '');
+  
+    // The background image to show should have a name with a
+    // <option-name>_<value-chosen>.png format
+    viewport_layer.style.backgroundImage = 'url(' + padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
+  }
 }

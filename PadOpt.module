@@ -370,13 +370,6 @@ EOT;
           }
         }
 
-        // Integrate CSS sheets from the previous modules
-        foreach($this->config->styles as $style) {
-          if(preg_match('/InputfieldCheckboxes/', $script)) {
-            $styles .= "<link rel='stylesheet' type='text/css' href='{$style}' />";
-          }
-        }
-        
         // Input fields style from PW
         $scripts .= "<script type='text/javascript' src='{$config->urls->root}/wire/templates-admin/scripts/inputfields.js'></script>";
         //$styles .= "<link rel='stylesheet' type='text/css' href='{$config->urls->root}/wire/templates-admin/styles/inputfields.css' />";
@@ -786,6 +779,17 @@ EOT;
   }
 
   /**
+   * Return the HTML code of the panel where the final price with options of the
+   * product will be dynamically updated, based on the user's choices
+   *
+   * @param string $text Message to show
+   * @return string HTML code
+   */
+  public function getFinalPriceWithOptionsPanel($text) {
+    return "<div id='padopt_finalprice'>{$text} <span id='padopt_finalprice_value'></span></div>";
+  }
+
+  /**
    * Return the HTML code of the input fields to add to the PadLoper form, in
    * which there is the "Add to cart" button. This function should be called
    * from a PadOpt product template, with a <field_tpl_name> field defined
@@ -868,7 +872,7 @@ EOT;
           $separators .= "<h2>{$inputfield->label}</h2>";
 
           if($first_separator) {
-            $separators .= '<span class="padopt_required_note">* : ' . _("Choix nécessaire") . '</span>';
+            $separators .= '<span class="padopt_required_note">* : ' . __("Choice required") . '</span>';
             $first_separator = false;
           }
   

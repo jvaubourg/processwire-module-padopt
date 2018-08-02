@@ -449,7 +449,13 @@ EOT;
             $view_url = "{$this->pages->get($product_id)->url}#{$url_options}";
 
             $render = "<ul class='{$this->general_prefix}included_options'>";
-            $render .= '<li>' . ($options_price > 0 ? $options_price : __("Free")) . '</li>';
+
+            if($options_price === false) {
+              $render .= '<li class="padopt_deleted_field">' . __("Some fields or options have be deleted since this order") . '</li>';
+            } else {
+              $render .= '<li>' . ($options_price > 0 ? $this->modules->get('PadCart')->renderPriceAndCurrency($options_price) : __("Free")) . '</li>';
+            }
+
             $render .= "<li><a href='javascript:;' class='{$this->general_prefix}show_options'>" . __("Show list") . "</a>{$options_list}</li>";
             $render .= "<li><a href='{$view_url}' target='_blank'>" . __("View online") . '</a></li>';
             $render .= '</ul>';
@@ -563,6 +569,8 @@ EOT;
                       $field_txt .= "<li><span class='padopt_option_value'>{$field_option->data['title']}</span></li>";
                     } else {
                       $this->logError("Option value {$subvalue} of the field {$name} does not exist");
+
+                      $field_txt .= "<li><span class='padopt_option_value padopt_deleted_field'>". __("Value") . "#{$subvalue}</span></li>";
                     }
 
                   } else {
@@ -580,6 +588,8 @@ EOT;
                   $field_txt = "<span class='padopt_option_value'>{$field_option->data['title']}</span>";
                 } else {
                   $this->logError("Option value {$value} of the field {$name} does not exist");
+
+                  $field_txt = "<span class='padopt_option_value padopt_deleted_field'>". __("Value") . "#{$value}</span>";
                 }
               }
 
@@ -593,6 +603,8 @@ EOT;
 
         } else {
           $this->logError("Select field {$name} does not have options");
+
+          $options_list .= "<li class='padopt_deleted_field'><span class='padopt_option_label'>{$name}:</span> <span class='padopt_option_value'>". __("Value") . "&lt;{$value}&gt;</span></li>";
         }
       }
     }
@@ -695,12 +707,17 @@ EOT;
   
                       if(empty(!$field_option)) {
                         $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
+
                       } else {
-                        $this->logError("Option value {$subvalue} of the field {$name} does not exist");
+                        $this->logError("Option value {$subvalue} of the field {$name} does not exist: this cancels calculating of the options price");
+
+                        return false;
                       }
 
                     } else {
-                      $this->logError("Subvalue {$subvalue} of the field {$name} must be a number");
+                      $this->logError("Subvalue {$subvalue} of the field {$name} must be a number: this cancels calculating of the options price");
+
+                      return false;
                     }
                   }
 
@@ -711,11 +728,15 @@ EOT;
                   if(empty(!$field_option)) {
                     $options_price += $this->extractOptionPriceFromTitle($field_option->data['title']);
                   } else {
-                    $this->logError("Option value {$value} of the field {$name} does not exist");
+                    $this->logError("Option value {$value} of the field {$name} does not exist: this cancels calculating of the options price");
+
+                    return false;
                   }
                 }
               } else {
-                $this->logError("Select field {$name} does not have options");
+                $this->logError("Select field {$name} does not have options: this cancels calculating of the options price");
+
+                return false;
               }
   
             // Free field (eg. text, textarea)
@@ -723,7 +744,9 @@ EOT;
               $options_price += $this->extractOptionPriceFromTitle($field->label);
             }
           } else {
-            $this->logError("Field {$name} does not exist");
+            $this->logError("Field {$name} does not exist: this cancels calculating of the options price");
+
+            return false;
           }
         }
       }

@@ -20,3 +20,8 @@
 .padopt_options_list ul li::before {
   content: '\2713';
 }
+
+.padopt_deleted_field {
+  font-style: italic;
+  color: red;
+}

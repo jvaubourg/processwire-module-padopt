@@ -58,7 +58,9 @@ function updateFinalPrice() {
  */
 function padoptProductAdd(e) {
   if(padoptProductCheckRequiredFields()) {
+    padoptProductRemoveHiddenFields();
     this.submit();
+
     return true;
   }
 
@@ -99,6 +101,23 @@ function padoptProductCheckRequiredFields() {
   $('#padopt_error').hide();
 
   return true;
+}
+
+/**
+ * Remove all hidden fields from the DOM
+ */
+function padoptProductRemoveHiddenFields() {
+  var forms = document.getElementsByClassName('padloper-cart-add-product');
+
+  if(forms.length > 0) {
+    forms[0].querySelectorAll('input, select, textarea').forEach(function(field) {
+      if($(field).is(':hidden')) {
+        if(field.getAttribute('type') != 'hidden') {
+          $(field).remove();
+        }
+      }
+    });
+  }
 }
 
 /**

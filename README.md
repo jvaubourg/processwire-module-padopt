@@ -146,6 +146,33 @@ sleeveColor_3.png
 
 Go on your product page: the preview is here and shows *default.png* by default. One of the *bodyColor* images will be stacked over by changing the value of the corresponding field, and one of the *sleeveColor* will also be stacked over by changing the other one. The shirt in the preview is now full colored.
 
+If you want to add a spinner for the images loading, you can define a style, like in this example:
+
+```
+.padopt_livecustomizer_viewport .padopt_spinner {
+  width: 71px;
+  height: 71px;
+  border: 7px solid #fff;
+  left: calc(50% - 39px);
+  top: calc(50% - 39px);
+  background-image: url(/site/templates/styles/logo.svg);
+  background-size: contain;
+  background-color: #fff;
+  border-radius: 50%;
+  opacity: .5;
+  animation: rotating .7s linear infinite;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+```
+
 ## How it Works Behind the Scenes
 
 PadOpt adds two main things to the PadLoper stuff:

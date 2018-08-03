@@ -75,9 +75,24 @@ function changeModifier() {
     // the option
     var img_name_regex = new RegExp('^' + padoptlc_inputprefix, 'i');
     var img_name = this.name.replace(img_name_regex, '');
+    var img_fullpath = padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png';
   
     // The background image to show should have a name with a
     // <option-name>_<value-chosen>.png format
-    viewport_layer.style.backgroundImage = 'url(' + padoptlc_imgurl + img_name.replace('_', '/') + '_' + this.value + '.png)';
+    viewport_layer.style.backgroundImage = 'url(' + img_fullpath + ')';
+
+    // Spinner for loading time
+    $('.padopt_spinner').show();
+    var bg_img = $('<img/>').attr('src', img_fullpath);
+
+    bg_img.on('load', function() {
+      $('.padopt_spinner').hide();
+      $(this).remove();
+    });
+
+    bg_img.on('error', function() {
+      $('.padopt_spinner').hide();
+      $(this).remove();
+    });
   }
 }

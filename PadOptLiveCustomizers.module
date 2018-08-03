@@ -44,6 +44,9 @@ class PadOptLiveCustomizers extends WireData implements PadOptSubmodule, Module 
   // CSS class name for the more nested empty div inside the viewport
   protected $class_spacer = 'padopt_spacer';
 
+  // CSS class name for the spinner, nested inside the viewport
+  protected $class_spinner = 'padopt_spinner';
+
   // Prefix of the input field ids
   protected $id_prefix = 'padoptlc_';
 
@@ -198,7 +201,7 @@ EOT;
       $form->add($inputfield);
     }
 
-    $render .= "<div class='{$this->class_spacer}'></div>";
+    $render .= "<div class='{$this->class_spacer}'><div class='{$this->class_spinner}'></div></div>";
   
     foreach($inputfields as $inputfield) {
       $render .= '</div>';

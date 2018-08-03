@@ -4,3 +4,12 @@
   background-repeat: no-repeat;
   background-size: contain;
 }
+
+.padopt_livecustomizer_viewport .padopt_spacer {
+  position: relative;
+}
+
+.padopt_livecustomizer_viewport .padopt_spinner {
+  display: none;
+  position: absolute;
+}

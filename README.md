@@ -88,6 +88,13 @@ You can also define your own CSS and JS files:
 - *site/templates/styles/padopt/padopt_product.css* and
 - *site/templates/scripts/padopt/padopt_product.js* will be included in all PadOpt product pages.
 
+If you use paid options, you can define 2 areas in your product template, where the total price of the selected options and the final price of the product including chosen options, will be updated with Javascript:
+
+```
+$content .= $this->modules->get('PadOpt')->getOptionsTotalPricePanel(__("+ Options:"));
+$content .= $this->modules->get('PadOpt')->getFinalPriceWithOptionsPanel(__("Final price with options:"));
+```
+
 ## PadOpt Submodules
 
 PadOpt supports a submodule system, to easily add features.

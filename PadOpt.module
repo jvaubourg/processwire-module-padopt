@@ -802,6 +802,20 @@ EOT;
   }
 
   /**
+   * Return the HTML code of the panel where the total price of the options
+   * will be dynamically updated, based on the user's choices
+   *
+   * @param string $text Message to show
+   * @return string HTML code
+   */
+  public function getOptionsTotalPricePanel($text) {
+    $currency = $this->modules->get('PadCart')->renderPriceAndCurrency(0);
+    $currency = preg_replace('/0[.,](?:00)?/', "<span>0</span>", $currency);
+
+    return "<div class='padopt_optionsprice'>{$text} <span class='padopt_optionsprice_value'>{$currency}</span></div>";
+  }
+
+  /**
    * Return the HTML code of the panel where the final price with options of the
    * product will be dynamically updated, based on the user's choices
    *
@@ -809,7 +823,10 @@ EOT;
    * @return string HTML code
    */
   public function getFinalPriceWithOptionsPanel($text) {
-    return "<div id='padopt_finalprice'>{$text} <span id='padopt_finalprice_value'></span></div>";
+    $currency = $this->modules->get('PadCart')->renderPriceAndCurrency(0);
+    $currency = preg_replace('/0[.,](?:00)?/', "<span></span>", $currency);
+
+    return "<div class='padopt_finalprice'>{$text} <span class='padopt_finalprice_value'>{$currency}</span></div>";
   }
 
   /**
@@ -892,7 +909,7 @@ EOT;
         $separators = '';
 
         foreach($inputfield_group['inputfields'] as $inputfield) {
-          $separators .= "<h2>{$inputfield->label}</h2>";
+          $separators .= "<h2 id='{$inputfield->name}'>{$inputfield->label}</h2>";
 
           if($first_separator) {
             $separators .= '<span class="padopt_required_note">* : ' . __("Choice required") . '</span>';

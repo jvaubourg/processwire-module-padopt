@@ -46,8 +46,89 @@ function padoptProductLogError(msg) {
   console.log(padopt_logname + ': ' + msg);
 }
 
+/**
+ * Extract the price of an option directly from its title
+ *
+ * @param string $title
+ * @return float Extracted price or zero
+*/
+function padoptProductExtractPriceFromTitle(title) {
+  var price = 0;
+
+  // eg. "With a golden shell (+ 499.99 €)"
+  var extracted_price = title.match(/\s*\(\s*\+\s*([0-9]+(?:[.,][0-9]+)?)\s*.+\s*\)/);
+
+  if(extracted_price && extracted_price.length > 1) {
+    price = extracted_price[1];
+  }
+
+  return parseFloat(price);
+}
+
+/**
+ * Update the final price with non-free options
+ */
 function updateFinalPrice() {
-  //var base_price = document.gtg
+  var final_price = $('.padopt_finalprice_value > span');
+  var base_price = document.getElementsByClassName('price');
+
+  if(final_price && base_price.length > 0) {
+    var options_price = 0;
+    var forms = document.getElementsByClassName('padloper-cart-add-product');
+
+    if(forms.length > 0) {
+      forms[0].querySelectorAll('input, select, textarea').forEach(function(field) {
+        var label = undefined;
+
+        if($(field).is(':visible')) {
+          if(field.type == 'checkbox') {
+            if(field.checked) {
+              label = $(field).siblings('span');
+            }
+
+          } else if(field.tagName.match(/select/i)) {
+            var option = field.querySelector('option:checked');
+
+            if(option) {
+              label = $(option);
+            }
+
+          } else {
+            if(!field.value.match(/\s*/)) {
+              label = $(field).parent().siblings('label');
+            }
+          }
+  
+          if(label) {
+            options_price += padoptProductExtractPriceFromTitle(label.text());
+          }
+        }
+      });
+    }
+
+    var old_price = final_price.text();
+    var new_price = parseFloat(base_price[0].innerHTML.replace(/[^0-9.,]+/, '').replace(',', '.')) + options_price;
+
+    if(new_price != old_price) {
+      if(options_price == 0) {
+          $('.padopt_finalprice').hide();
+          $('.padopt_optionsprice').hide();
+
+      } else {
+        $('.padopt_finalprice_value').fadeOut('slow', function() {
+          final_price.text(new_price);
+          $(this).fadeIn('slow');
+          $('.padopt_finalprice').show();
+        });
+  
+        $('.padopt_optionsprice_value').fadeOut('slow', function() {
+          $('.padopt_optionsprice_value > span').text(options_price);
+          $(this).fadeIn('slow');
+          $('.padopt_optionsprice').show();
+        });
+      }
+    }
+  }
 }
 
 /**
@@ -90,9 +171,9 @@ function padoptProductCheckRequiredFields() {
 
   if(not_filled > 0) {
     $('#padopt_error').slideDown('slow', function() {
-      $('#padopt_error').fadeIn(200);
-      $('#padopt_error').fadeOut(100);
-      $('#padopt_error').fadeIn(1000);
+      $(this).fadeIn(200);
+      $(this).fadeOut(100);
+      $(this).fadeIn(1000);
     });
 
     return false;

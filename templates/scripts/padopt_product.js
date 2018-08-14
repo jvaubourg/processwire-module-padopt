@@ -32,7 +32,7 @@ function startPadoptProduct() {
     forms[0].addEventListener('submit', padoptProductAdd, false);
 
     forms[0].querySelectorAll('input, select, textarea').forEach(function(field) {
-      field.addEventListener('change', updateFinalPrice, false);
+      $(field).on('change', updateFinalPrice);
     });
   }
 }
@@ -288,7 +288,7 @@ function padoptProductReviewMode() {
             }
   
             // Ask the input fields to trigger their 'change' handlers
-            input.dispatchEvent(new Event('change'));
+            $(input).trigger('change');
           }
         }
       }

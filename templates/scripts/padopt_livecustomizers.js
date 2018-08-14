@@ -39,17 +39,8 @@ function locateLiveCustomizers() {
 
     for(var j = 0; j < modifiers.length; j++) {
       if(modifiers[j].getAttribute('name').startsWith(padoptlc_inputprefix)) {
-        modifiers[j].addEventListener('change', changeModifier, false);
-
-        // Preview mode enabled
-        if(modifiers[j].disabled) {
-          modifiers[j].disabled = false;
-          modifiers[j].dispatchEvent(new Event('change'));
-          modifiers[j].disabled = true;
-
-        } else {
-          modifiers[j].dispatchEvent(new Event('change'));
-        }
+        $(modifiers[j]).on('change', changeModifier);
+        $(modifiers[j]).trigger('change');
       }
     }
   }

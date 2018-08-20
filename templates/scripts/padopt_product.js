@@ -112,7 +112,9 @@ function updateFinalPrice() {
     if(new_price != old_price) {
       if(options_price == 0) {
           $('.padopt_finalprice').hide();
+          final_price.text('');
           $('.padopt_optionsprice').hide();
+          $('.padopt_optionsprice_value > span').text('');
 
       } else {
         $('.padopt_finalprice_value').fadeOut('slow', function() {

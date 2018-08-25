@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-window.addEventListener('load', start, false);
+$(window).on('load', start);
 
 /**
  * Called once the page is loaded

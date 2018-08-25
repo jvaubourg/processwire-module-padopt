@@ -18,7 +18,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-window.addEventListener('load', startPadoptProduct, false);
+$(window).on('load', startPadoptProduct);
 
 /**
  * Called once the page is loaded
@@ -29,10 +29,11 @@ function startPadoptProduct() {
   var forms = document.getElementsByClassName('padloper-cart-add-product');
 
   if(forms.length > 0) {
-    forms[0].addEventListener('submit', padoptProductAdd, false);
+    $(forms[0]).on('submit', padoptProductAdd );
 
     forms[0].querySelectorAll('input, select, textarea').forEach(function(field) {
       $(field).on('change', updateFinalPrice);
+      $(field).trigger('change');
     });
   }
 }
@@ -288,9 +289,6 @@ function padoptProductReviewMode() {
             } else {
               input.value = values[i];
             }
-  
-            // Ask the input fields to trigger their 'change' handlers
-            $(input).trigger('change');
           }
         }
       }

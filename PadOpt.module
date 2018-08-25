@@ -562,7 +562,7 @@ EOT;
                 $field_txt = '<ul>';
     
                 foreach($subvalues as $subvalue) {
-                  if(is_integer($subvalue)) {
+                  if(is_numeric($subvalue)) {
                     $field_option = $field_options->get($subvalue);
 
                     if(empty(!$field_option)) {
@@ -702,7 +702,7 @@ EOT;
                   $subvalues = explode('|', $value);
           
                   foreach($subvalues as $subvalue) {
-                    if(is_integer($subvalue)) {
+                    if(is_numeric($subvalue)) {
                       $field_option = $field_options->get($subvalue);
   
                       if(empty(!$field_option)) {

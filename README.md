@@ -119,7 +119,7 @@ Let's take another example of shirt selling, with a live preview of the colors:
   - *padopt_live_myshirt_sleeveColor* (type *Select Options*)
 3. Add these 2 new fields to the new template
 4. Create a new page associated to a product template and select *padopt_shirts* when asked
-5. Choose a Thumb image for this page: it will be used as a thumbnail in the lists and will be automatically replaced by the default image of the live customizator when opening the page
+5. Choose a Thumb image for this page: it will be used as a thumbnail in the product lists and will be automatically replaced by the default image of the live customizer when opening the page
 
 Let's assume your color lists are:
 
